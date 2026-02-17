@@ -56,23 +56,42 @@ except ImportError:
 # MULTI-AGENT: Build root from DB before ADK loads (all Gavigans, no auth)
 # =============================================================================
 import asyncio
+import threading
 import gavigans_agent.agent as ga_module
 
 
-def _run_async_bootstrap(coro):
-    """Run async code by creating a fresh event loop (avoids uvloop conflicts)."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-        asyncio.set_event_loop(None)
+def _run_async_in_thread(coro):
+    """
+    Run async code in a SEPARATE THREAD with its own event loop.
+    This avoids conflicts with uvicorn's event loop completely.
+    """
+    result = [None]
+    exception = [None]
+    
+    def _thread_target():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result[0] = loop.run_until_complete(coro)
+        except Exception as e:
+            exception[0] = e
+        finally:
+            loop.close()
+    
+    thread = threading.Thread(target=_thread_target)
+    thread.start()
+    thread.join(timeout=30)  # 30 second timeout
+    
+    if thread.is_alive():
+        raise TimeoutError("Multi-agent bootstrap timed out after 30s")
+    if exception[0]:
+        raise exception[0]
+    return result[0]
 
 
 try:
     from multi_agent_builder import build_root_agent
-    _root = _run_async_bootstrap(build_root_agent(
+    _root = _run_async_in_thread(build_root_agent(
         before_callback=ga_module.before_agent_callback,
         after_callback=ga_module.after_agent_callback,
     ))
