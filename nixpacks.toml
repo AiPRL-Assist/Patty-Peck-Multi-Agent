@@ -11,4 +11,6 @@ cmds = [
 ]
 
 [start]
-cmd = "python -m prisma db push 2>/dev/null || true; uvicorn main:app --host 0.0.0.0 --port $PORT"
+# Run prisma db push to create tables, then start uvicorn
+# Show errors instead of silencing them
+cmd = "echo '🔧 Running prisma db push...' && python -m prisma db push --skip-generate && echo '✅ Prisma tables ready' && uvicorn main:app --host 0.0.0.0 --port $PORT"
