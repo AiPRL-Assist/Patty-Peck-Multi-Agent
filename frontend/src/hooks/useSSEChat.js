@@ -31,7 +31,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from 'react'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'gavigans_agent'
 
 // 🔐 Storage keys for persistence
