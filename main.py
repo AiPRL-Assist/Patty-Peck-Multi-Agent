@@ -152,6 +152,25 @@ app = get_fast_api_app(
 )
 
 
+# =============================================================================
+# IFRAME EMBEDDING: Allow this app to be embedded in iframes from any domain
+# =============================================================================
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class IframeAllowMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        # Remove X-Frame-Options if present (blocks iframes)
+        if "X-Frame-Options" in response.headers:
+            del response.headers["X-Frame-Options"]
+        # Set CSP to allow embedding from anywhere
+        response.headers["Content-Security-Policy"] = "frame-ancestors *"
+        return response
+
+app.add_middleware(IframeAllowMiddleware)
+print("✅ Iframe embedding enabled (frame-ancestors *)")
+
+
 @app.get("/debug/multi-agent", include_in_schema=False)
 def debug_multi_agent():
     """Verify multi-agent loaded (sub_agents from DB)."""
@@ -274,7 +293,7 @@ if FRONTEND_DIR.exists():
                 index_file,
                 headers={
                     "X-Content-Type-Options": "nosniff",
-                    "X-Frame-Options": "SAMEORIGIN",
+                    "Content-Security-Policy": "frame-ancestors *",
                     "Referrer-Policy": "strict-origin-when-cross-origin",
                 }
             )
