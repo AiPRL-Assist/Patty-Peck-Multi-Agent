@@ -24,7 +24,8 @@ _raw_db_url = os.environ.get("DATABASE_URL")
 if _raw_db_url:
     SESSION_DB_URL = _raw_db_url.replace("postgres://", "postgresql+asyncpg://").replace("sslmode=require", "ssl=require")
     if "postgresql+asyncpg" in _raw_db_url:
-        os.environ["DATABASE_URL"] = _raw_db_url.replace("postgresql+asyncpg://", "postgresql://")
+        _prisma_url = _raw_db_url.replace("postgresql+asyncpg://", "postgresql://").replace("ssl=require", "sslmode=require")
+        os.environ["DATABASE_URL"] = _prisma_url
 else:
     SESSION_DB_URL = None
 
