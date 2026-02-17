@@ -167,7 +167,7 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
             model=config["model"],
             description=config["description"],
             instruction=config["instruction"],
-            tools=tools if tools else None,
+            tools=tools,  # Empty list is fine, None is not
         )
         sub_agents.append(agent)
     
