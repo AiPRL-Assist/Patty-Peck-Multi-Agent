@@ -19,6 +19,15 @@ from dotenv import load_dotenv
 # Load environment variables FIRST
 load_dotenv(override=True)
 
+# Prisma needs postgresql:// (not postgresql+asyncpg://). ADK needs postgresql+asyncpg://.
+_raw_db_url = os.environ.get("DATABASE_URL")
+if _raw_db_url:
+    SESSION_DB_URL = _raw_db_url.replace("postgres://", "postgresql+asyncpg://").replace("sslmode=require", "ssl=require")
+    if "postgresql+asyncpg" in _raw_db_url:
+        os.environ["DATABASE_URL"] = _raw_db_url.replace("postgresql+asyncpg://", "postgresql://")
+else:
+    SESSION_DB_URL = None
+
 # =============================================================================
 # CRITICAL: Monkey-patch ADK's PreciseTimestamp BEFORE any ADK imports
 # =============================================================================
@@ -60,6 +69,7 @@ try:
     print("✅ Multi-agent root loaded from DB")
 except Exception as e:
     print(f"⚠️ Multi-agent bootstrap failed ({e}) - using single agent from module")
+    _root = None  # fallback used
 
 # =============================================================================
 
@@ -70,17 +80,6 @@ from fastapi.responses import FileResponse
 
 # Get port from environment
 PORT = int(os.environ.get("PORT", 8000))
-
-# Database URL for session persistence (PostgreSQL)
-# ADK requires postgresql+asyncpg:// format, not postgres://
-_raw_db_url = os.environ.get("DATABASE_URL")
-if _raw_db_url:
-    # Convert postgres:// to postgresql+asyncpg:// for SQLAlchemy async
-    SESSION_DB_URL = _raw_db_url.replace("postgres://", "postgresql+asyncpg://")
-    # Convert sslmode=require to ssl=require for asyncpg
-    SESSION_DB_URL = SESSION_DB_URL.replace("sslmode=require", "ssl=require")
-else:
-    SESSION_DB_URL = None
 
 # CORS configuration
 ALLOWED_ORIGINS = [
@@ -114,6 +113,18 @@ app = get_fast_api_app(
     session_service_uri=SESSION_DB_URL,
     session_db_kwargs=SESSION_DB_KWARGS,
 )
+
+
+@app.get("/debug/multi-agent", include_in_schema=False)
+def debug_multi_agent():
+    """Verify multi-agent loaded (sub_agents from DB)."""
+    import gavigans_agent.agent as ga
+    root = getattr(ga, "root_agent", None)
+    if not root:
+        return {"multi_agent": False, "reason": "no root_agent"}
+    sub = getattr(root, "sub_agents", None) or []
+    return {"multi_agent": True, "sub_agents": len(sub), "names": [a.name for a in sub]}
+
 
 # --- INBOX Integration ---
 # Mount inbox router for /api/inbox/* endpoints
