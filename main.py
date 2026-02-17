@@ -89,6 +89,8 @@ def _run_async_in_thread(coro):
     return result[0]
 
 
+_bootstrap_error = None  # Store error for debugging
+
 try:
     from multi_agent_builder import build_root_agent
     _root = _run_async_in_thread(build_root_agent(
@@ -101,7 +103,8 @@ try:
     print(f"✅ Multi-agent root loaded from DB: {len(getattr(_root, 'sub_agents', []) or [])} sub-agents")
 except Exception as e:
     import traceback
-    traceback.print_exc()
+    _bootstrap_error = traceback.format_exc()
+    print(_bootstrap_error)
     print(f"⚠️ Multi-agent bootstrap failed ({e}) - using single agent from module")
     _root = None  # fallback used
 
@@ -165,8 +168,50 @@ def debug_multi_agent():
         "names": [a.name for a in sub],
         "root_description": root.description,
         "is_dynamic": not is_default,
-        "bootstrap_result": "success" if _root else "failed"
+        "bootstrap_result": "success" if _root else "failed",
+        "bootstrap_error": _bootstrap_error[:2000] if _bootstrap_error else None
     }
+
+
+@app.get("/debug/bootstrap-retry", include_in_schema=False)
+async def debug_bootstrap_retry():
+    """Manually retry the multi-agent bootstrap and return error details."""
+    import os
+    global _root, _bootstrap_error
+    
+    try:
+        from multi_agent_builder import build_root_agent
+        import gavigans_agent.agent as ga_module
+        
+        # Try to build directly (we're already in an async context)
+        new_root = await build_root_agent(
+            before_callback=ga_module.before_agent_callback,
+            after_callback=ga_module.after_agent_callback,
+        )
+        
+        # If successful, update the global root
+        ga_module.root_agent = new_root
+        import gavigans_agent
+        gavigans_agent.root_agent = new_root
+        _root = new_root
+        _bootstrap_error = None
+        
+        sub_agents = getattr(new_root, 'sub_agents', []) or []
+        return {
+            "success": True,
+            "sub_agents": len(sub_agents),
+            "names": [a.name for a in sub_agents],
+            "db_url_prefix": os.environ.get("DATABASE_URL", "NOT SET")[:50]
+        }
+    except Exception as e:
+        import traceback
+        error = traceback.format_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": error,
+            "db_url_prefix": os.environ.get("DATABASE_URL", "NOT SET")[:50]
+        }
 
 
 # --- INBOX Integration ---
