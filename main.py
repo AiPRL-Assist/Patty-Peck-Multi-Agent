@@ -136,9 +136,18 @@ def debug_multi_agent():
     import gavigans_agent.agent as ga
     root = getattr(ga, "root_agent", None)
     if not root:
-        return {"multi_agent": False, "reason": "no root_agent"}
+        return {"multi_agent": False, "reason": "no root_agent", "bootstrap_ran": _root is not None}
     sub = getattr(root, "sub_agents", None) or []
-    return {"multi_agent": True, "sub_agents": len(sub), "names": [a.name for a in sub]}
+    # Check if this is the dynamically built root or the default one
+    is_default = root.description == "Gavigans multi-agent platform AI assistant"
+    return {
+        "multi_agent": len(sub) > 0,
+        "sub_agents": len(sub),
+        "names": [a.name for a in sub],
+        "root_description": root.description,
+        "is_dynamic": not is_default,
+        "bootstrap_result": "success" if _root else "failed"
+    }
 
 
 # --- INBOX Integration ---
