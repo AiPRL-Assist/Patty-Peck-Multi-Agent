@@ -6,6 +6,7 @@ import os
 import logging
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
+from google.genai import types as genai_types
 import httpx
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -369,9 +370,9 @@ Whenever you request details of any kind, do that one by one. Do not overwhelm t
 PRODUCT SEARCH TOOL - WHEN TO USE IT:
 You have the search_products tool. Use it smartly like a real salesperson would. Here are the rules:
 
-1. Do NOT run the search_products tool for general or vague queries like "I am looking for a sofa." Instead, ask a clarifying question like "What type of sofa are you looking for? Something in leather, fabric, a sectional?" Once they give you something specific, then call the tool.
+1. Do NOT run the search_products tool for extremely vague queries with no detail at all like just "I need furniture" or "what do you have?" Instead, ask a clarifying question. Once they give you ANY specifics, call the tool.
 
-2. Run the search_products tool when the user has determined specifically what type of product they are looking for. For example, if they say they want something in leather, or a specific style, or a specific size, then run the tool.
+2. Run the search_products tool when the user provides ANY specific detail: a color, material, style, size, budget, product type, or category. For example "black sofas", "leather recliner", "sofa under 500", "sectional", "reclining sofa" are ALL specific enough to search. Do not ask unnecessary clarifying questions - search first, then refine.
 
 3. Run the search_products tool if the user asks for details about a specific product by name or description.
 
@@ -734,7 +735,7 @@ You MUST collect Name and Email at minimum before running the create_ticket tool
 
 async def search_products(user_message: str) -> dict:
     """Search for products based on the user's query."""
-    url = "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/895eb7ee-2a87-4e65-search-for-products"
+    url = "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/bdca330b-8f1c-4b40-99aa-aiprl-home-and-living-V3"
     payload = {
         "User_message": user_message,
         "chat_history": "na",
@@ -749,7 +750,33 @@ async def search_products(user_message: str) -> dict:
                 if not body:
                     return {"products": [], "message": "No products found for that search. Try different keywords."}
                 try:
-                    return resp.json()
+                    import json as _json
+                    data = resp.json()
+                    # API returns [{"message": "{\"products\":[...]}"}]
+                    products = []
+                    if isinstance(data, list) and len(data) > 0:
+                        msg = data[0].get("message", "")
+                        if isinstance(msg, str):
+                            parsed = _json.loads(msg)
+                            products = parsed.get("products", [])
+                        elif isinstance(data[0], dict):
+                            products = data[0].get("products", [])
+                    elif isinstance(data, dict):
+                        products = data.get("products", [])
+
+                    slim = []
+                    for p in products[:5]:
+                        desc = p.get("product_description", "")
+                        slim.append({
+                            "name": p.get("product_name", "Unknown"),
+                            "price": str(p.get("product_price", "")).split(",")[0].strip(),
+                            "description": desc[:200] if desc else "",
+                            "url": p.get("product_URL", ""),
+                            "image": p.get("product_image_URL", ""),
+                        })
+                    if slim:
+                        return {"products": slim}
+                    return {"products": [], "message": "No products found. Try different keywords."}
                 except Exception:
                     return {"products": [], "message": "Search returned unexpected format. Try different keywords."}
             return {"products": [], "message": f"Search unavailable (status {resp.status_code}). Try again shortly."}
@@ -914,6 +941,13 @@ Available agents:
         sub_agents=sub_agents,
         before_agent_callback=before_callback,
         after_agent_callback=after_callback,
+        generate_content_config=genai_types.GenerateContentConfig(
+            tool_config=genai_types.ToolConfig(
+                function_calling_config=genai_types.FunctionCallingConfig(
+                    mode="ANY",
+                )
+            )
+        ),
     )
     
     print(f"✅ Multi-agent root built with {len(sub_agents)} sub-agents:")
