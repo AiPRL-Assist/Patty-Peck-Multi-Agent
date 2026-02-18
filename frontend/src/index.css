@@ -212,17 +212,17 @@ body::before {
 }
 
 /* ============================================
-   HEADER - Teaser + tactile (top highlight, bottom shadow, 12:00 light)
+   HEADER - Clean neutral design
    ============================================ */
 .header {
   flex-shrink: 0;
-  background: var(--teaser-bg);
-  color: var(--teaser-color);
-  border-bottom: var(--teaser-border);
+  background: #f8f9fa;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e5e7eb;
   padding: 0 16px;
   position: relative;
   z-index: 100;
-  box-shadow: var(--highlight-top-subtle), 0 4px 12px rgba(111, 3, 2, 0.35), 0 1px 3px rgba(111, 3, 2, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .header-content {
@@ -276,21 +276,21 @@ body::before {
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--teaser-color);
+  color: #1a1a1a;
   margin: 0;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .brand-subtitle {
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: #64748b;
   margin: 0;
   letter-spacing: 0.06em;
   font-weight: 500;
   text-transform: uppercase;
   padding: 3px 8px;
+  background: #e2e8f0;
   border-radius: 4px;
   display: inline-block;
   margin-top: 3px;
@@ -383,16 +383,17 @@ body::before {
 }
 
 .avatar-user {
-  background: var(--brand-primary);
+  background: #1a1a1a;
   color: white;
-  box-shadow: var(--highlight-top-subtle), 0 2px 6px rgba(111, 3, 2, 0.25), 0 1px 3px rgba(111, 3, 2, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Agent avatar: G icon zoomed out (padding) so it breathes */
+/* Agent avatar: clean white with subtle border */
 .avatar-agent {
-  background: var(--layer-3);
-  color: var(--bubble-color);
-  box-shadow: var(--highlight-top-strong), 0 0 0 1px var(--bubble-outline), var(--shadow-neutral);
+  background: #ffffff;
+  color: #1a1a1a;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
   overflow: hidden;
   padding: 5px;
 }
@@ -430,25 +431,25 @@ body::before {
   transition: all var(--transition-fast);
 }
 
-/* User bubble - top highlight + bottom shadow (tinted), 12:00 light */
+/* User bubble - black background, white text */
 .bubble-user {
-  background: var(--brand-primary);
-  color: white;
+  background: #1a1a1a;
+  color: #ffffff;
   border-bottom-right-radius: var(--radius-sm);
-  box-shadow: var(--highlight-top-subtle), 0 2px 4px rgba(111, 3, 2, 0.2), 0 4px 12px rgba(111, 3, 2, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* Agent bubble - bubble.bg/color/outline + tactile depth */
+/* Agent bubble - white background, black text */
 .bubble-agent {
-  background: var(--bubble-bg);
-  color: var(--bubble-color);
-  border: 1px solid var(--bubble-outline);
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid #e5e7eb;
   border-bottom-left-radius: var(--radius-sm);
-  box-shadow: var(--highlight-top-subtle), 0 2px 4px rgba(111, 3, 2, 0.2), 0 4px 12px rgba(111, 3, 2, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .bubble-agent:hover {
-  box-shadow: var(--highlight-top-subtle), 0 4px 8px rgba(111, 3, 2, 0.22), 0 6px 16px rgba(111, 3, 2, 0.12);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
 /* System bubble - sunken feel (dark inset top, light bottom) */
@@ -484,13 +485,16 @@ body::before {
   transition: color var(--transition-fast);
 }
 
-.bubble-user .message-link,
-.bubble-agent .message-link {
+.bubble-user .message-link {
   color: rgba(255, 255, 255, 0.95);
 }
 
+.bubble-agent .message-link {
+  color: #2563eb;
+}
+
 .message-link:hover {
-  color: var(--brand-mandy);
+  color: #1d4ed8;
 }
 
 .message-tools {
@@ -546,13 +550,14 @@ body::before {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: rgba(111, 3, 2, 0.4);
+  background: #f1f5f9;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--teaser-color);
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  box-shadow: inset 0 1px 2px rgba(111, 3, 2, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .event-feed-indicator {
