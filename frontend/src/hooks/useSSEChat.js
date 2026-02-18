@@ -76,21 +76,18 @@ function getPersistentUserId() {
   if (customerEmail) {
     const userId = hashEmail(customerEmail)
     localStorage.setItem(STORAGE_KEY_USER_ID, userId)
-    console.log('🔐 Using email-based userId:', userId, '(from:', customerEmail, ')')
     return userId
   }
   
   // Priority 2: Check localStorage for existing anonymous ID
   const storedUserId = localStorage.getItem(STORAGE_KEY_USER_ID)
   if (storedUserId) {
-    console.log('💾 Using stored userId:', storedUserId)
     return storedUserId
   }
   
   // Priority 3: Generate new and store
   const newUserId = randomId('user')
   localStorage.setItem(STORAGE_KEY_USER_ID, newUserId)
-  console.log('🆕 Generated new userId:', newUserId)
   return newUserId
 }
 
@@ -107,7 +104,6 @@ function getStoredSessionId() {
 function storeSessionId(sessionId) {
   if (sessionId) {
     localStorage.setItem(STORAGE_KEY_SESSION_ID, sessionId)
-    console.log('💾 Stored sessionId for recovery:', sessionId)
   }
 }
 
@@ -294,11 +290,18 @@ export function useSSEChat() {
   const [hasPendingRecovery, setHasPendingRecovery] = useState(false) // Show recovery prompt
   const [pendingSessionData, setPendingSessionData] = useState(null) // Store session data for recovery
   
-  // 🔐 PERSISTENT userId - same across page loads and sessions!
-  const userIdRef = useRef(getPersistentUserId())
+  // Persistent userId - same across page loads and sessions.
+  // Lazy init to avoid calling getPersistentUserId() on every render.
+  const userIdRef = useRef(null)
+  if (userIdRef.current === null) {
+    userIdRef.current = getPersistentUserId()
+  }
   
-  // 🔐 PERSISTENT sessionId - try to recover from localStorage
-  const sessionIdRef = useRef(getStoredSessionId())
+  // Persistent sessionId - try to recover from localStorage (lazy init)
+  const sessionIdRef = useRef(null)
+  if (sessionIdRef.current === null) {
+    sessionIdRef.current = getStoredSessionId()
+  }
   const sessionCreatedRef = useRef(false)
   const sessionRecoveryAttempted = useRef(false)
   

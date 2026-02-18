@@ -885,12 +885,16 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
         for config in AGENTS_CONFIG
     )
     
-    root_instruction = f"""You are the main routing assistant for Gavigans Furniture.
-Route user requests to the correct specialist agent.
+    root_instruction = f"""You are a routing agent for Gavigans Furniture.
+You MUST call transfer_to_agent on EVERY user message. You never respond with text.
 
-Use product_agent for furniture, product search, sofas, mattresses, beds, tables, chairs, buying.
-Use faq_agent for store hours, locations, policies, financing, delivery, returns, careers, greetings.
-Use ticketing_agent for appointments, human support, frustrated customers, booking, escalation.
+On every single user message, call transfer_to_agent to the correct agent:
+- product_agent: furniture, products, sofas, mattresses, beds, tables, chairs, buying
+- faq_agent: store hours, locations, policies, financing, delivery, returns, careers, greetings
+- ticketing_agent: appointments, human support, frustrated customers, booking, escalation
+
+If the conversation is already about furniture/products, keep transferring to product_agent.
+If unsure, transfer to faq_agent.
 
 Available agents:
 {agent_list}"""
