@@ -142,9 +142,24 @@ app.add_middleware(IframeAllowMiddleware)
 print("✅ Iframe embedding enabled (frame-ancestors *)")
 
 
+def _tool_names(agent) -> list[str]:
+    """Get tool names from an agent (works with FunctionTool and similar)."""
+    tools = getattr(agent, "tools", None) or []
+    names = []
+    for t in tools:
+        name = getattr(t, "name", None) or getattr(t, "_name", None)
+        if name:
+            names.append(name)
+        else:
+            # FunctionTool often exposes the underlying function
+            func = getattr(t, "func", None) or getattr(t, "_func", None)
+            names.append(getattr(func, "__name__", "?") if func else "?")
+    return names
+
+
 @app.get("/debug/multi-agent", include_in_schema=False)
 def debug_multi_agent():
-    """Verify multi-agent loaded (sub_agents from DB)."""
+    """Verify multi-agent loaded and show tools per agent (root has 0 tools by design; sub-agents have tools)."""
     import gavigans_agent.agent as ga
     root = getattr(ga, "root_agent", None)
     if not root:
@@ -152,11 +167,18 @@ def debug_multi_agent():
     sub = getattr(root, "sub_agents", None) or []
     # Check if this is the dynamically built root or the default one
     is_default = root.description == "Gavigans multi-agent platform AI assistant"
+    root_tools = _tool_names(root)
+    sub_agents_with_tools = [
+        {"name": a.name, "tools": _tool_names(a)}
+        for a in sub
+    ]
     return {
         "multi_agent": len(sub) > 0,
         "sub_agents": len(sub),
         "names": [a.name for a in sub],
         "root_description": root.description,
+        "root_tools": root_tools,
+        "sub_agents_tools": sub_agents_with_tools,
         "is_dynamic": not is_default,
         "bootstrap_result": "success" if _root else "failed",
         "bootstrap_error": _bootstrap_error[:2000] if _bootstrap_error else None
