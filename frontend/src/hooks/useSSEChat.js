@@ -227,8 +227,17 @@ export const EventType = {
 function parseEvent(event) {
   const parts = event?.content?.parts ?? []
   
+  // First pass: check for function calls and responses (higher priority than text).
+  // If a transfer_to_agent is present alongside text, the text is spurious routing
+  // chatter from the root agent and should be ignored.
+  let hasTransfer = false
   for (const part of parts) {
-    // Check for function call
+    if (part.functionCall?.name === 'transfer_to_agent') {
+      hasTransfer = true
+    }
+  }
+
+  for (const part of parts) {
     if (part.functionCall) {
       return {
         type: EventType.FUNCTION_CALL,
@@ -238,7 +247,6 @@ function parseEvent(event) {
       }
     }
     
-    // Check for function response
     if (part.functionResponse) {
       return {
         type: EventType.FUNCTION_RESPONSE,
@@ -247,13 +255,17 @@ function parseEvent(event) {
         raw: event
       }
     }
-    
-    // Check for text
-    if (typeof part.text === 'string' && part.text.trim()) {
-      return {
-        type: event.partial ? EventType.TEXT_PARTIAL : EventType.TEXT,
-        text: part.text.trim(),
-        raw: event
+  }
+
+  // Only process text if there's no transfer happening in this event
+  if (!hasTransfer) {
+    for (const part of parts) {
+      if (typeof part.text === 'string' && part.text.trim()) {
+        return {
+          type: event.partial ? EventType.TEXT_PARTIAL : EventType.TEXT,
+          text: part.text.trim(),
+          raw: event
+        }
       }
     }
   }
