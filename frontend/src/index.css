@@ -303,40 +303,32 @@ body::before {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Reset button - Top highlight + bottom shadow (12:00), hover lift, squishy click */
+/* Reset button - White bg with dark icon so it's VISIBLE */
 .reset-btn {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--layer-3);
+  border: none;
+  color: var(--brand-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
-  box-shadow: var(--highlight-top), 0 2px 4px rgba(111, 3, 2, 0.2), 0 1px 2px rgba(111, 3, 2, 0.12);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral-md);
 }
 
 .reset-btn:hover {
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.12) 100%
-  );
-  color: var(--teaser-color);
+  background: var(--layer-3);
+  color: var(--brand-primary-dark);
   transform: translateY(-1px);
-  box-shadow: var(--highlight-top), 0 4px 8px rgba(111, 3, 2, 0.25), 0 2px 4px rgba(111, 3, 2, 0.15);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral-lg);
 }
 
 .reset-btn:active {
   transform: translateY(0);
-  box-shadow: var(--shadow-inset-press), 0 1px 2px rgba(111, 3, 2, 0.1);
+  box-shadow: var(--shadow-inset-press);
 }
 
 /* ============================================
