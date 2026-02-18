@@ -1,100 +1,91 @@
 /**
- * Woodstock Furniture & Mattress Outlet - AiPRL Assistant
- * Brand-aligned CSS with Tactile Minimalism
- * 
- * Design Philosophy: "Depth is Logic" - Light tells users what they can touch
- * Light source: Fixed at 12:00 high (top highlights, bottom shadows)
- * 
- * Brand Colors:
- * - Primary: Navy Blue (logo background)
- * - Accent: Golden Yellow #FBDE08 (logo text, highlights)
- * - Action: Mandy Red #E15467 (sale, urgency)
- * - Neutrals: White, Off-white, Dark gray
+ * Iframe chat content - Brand (bubble + teaser) + Tactile Minimalism
+ *
+ * Theme: bubble.bg #6f0302, bubble.color #fff, bubble.outline #000;
+ *        teaser.bg #6f0302, teaser.color #fff, teaser.border 2px solid #fff.
+ *
+ * Design: ADK-Woodstock/docs/brand/tactile minimalism.md
+ * - Light source fixed at 12:00 (top highlight + bottom shadow on every elevated element).
+ * - No pure black shadows: tinted shadows (darker version of bg) for "rich" depth.
+ * - Monochromatic layering: base + 0.1 lightness steps (layer-0..3).
+ * - Sunken inputs: dark inset top, light inset bottom.
+ * - Squishy click: on active, inset shadow (element pushed into screen).
+ * - Shadow hierarchy: Level 2 = natural, Level 3 = hover (lift); consistent everywhere.
+ * - Noise texture 2–3% on background for material feel.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* ============================================
-   CSS VARIABLES - WOODSTOCK BRAND PALETTE
-   Tactile Minimalism: Monochromatic layering
+   CSS VARIABLES - BUBBLE & TEASER + TACTILE MINIMALISM
    ============================================ */
 :root {
-  /* Brand Colors - Woodstock Palette */
-  --brand-navy: #1a365d;
-  --brand-navy-dark: #0f2744;
-  --brand-navy-light: #2d4a7c;
-  --brand-navy-lighter: #3d5a8c; /* +0.1 lightness for layering */
-  --brand-gold: #FBDE08;
-  --brand-gold-dark: #d4ba00;
-  --brand-gold-light: #fce54a; /* +0.1 lightness for highlights */
-  --brand-mandy: #E15467;
-  --brand-cream: #FFF9E6;
-  
-  /* Tactile Layering - 0.1 lightness increments */
-  --layer-0: #f5f6f8; /* Base background */
-  --layer-1: #fafbfc; /* +0.1 - Cards, panels */
-  --layer-2: #ffffff; /* +0.1 - Elevated elements */
-  --layer-3: #ffffff; /* Top layer - modals, popovers */
-  
-  /* Semantic Colors */
+  /* Bubble / Teaser (brand) */
+  --bubble-bg: #6f0302;
+  --bubble-color: #ffffff;
+  --bubble-outline: #000000;
+  --teaser-bg: #6f0302;
+  --teaser-color: #ffffff;
+  --teaser-border: 2px solid #ffffff;
+
+  --brand-primary: #6f0302;
+  --brand-primary-dark: #5a0202;
+  --brand-primary-light: #8a0403;
+  --brand-accent: #ffffff;
+  --brand-mandy: #c41e3a;
+
+  /* Monochromatic layering (0.1 rule: base + lightness steps) */
+  --layer-0: #f0f0f0;   /* Base background */
+  --layer-1: #f5f5f5;   /* +0.1 - panels */
+  --layer-2: #fafafa;   /* +0.1 - cards */
+  --layer-3: #ffffff;   /* Top - elevated */
+
   --bg-primary: var(--layer-1);
   --bg-secondary: var(--layer-0);
-  --bg-tertiary: #ebedf0;
-  --bg-sunken: #e8eaed; /* For inset/sunken elements */
-  --bg-navy: var(--brand-navy);
-  
+  --bg-tertiary: #e8eaed;
+  --bg-sunken: #e5e7eb;
+
   --text-primary: #1a1a2e;
   --text-secondary: #4a5568;
   --text-muted: #718096;
   --text-inverse: #ffffff;
-  
-  --border-color: rgba(0, 0, 0, 0.06); /* Subtle - let shadows do the work */
-  --border-hover: rgba(0, 0, 0, 0.1);
-  
-  /* Event Colors */
-  --event-calling: var(--brand-gold);
+
+  /* Tinted shadows (no pure black): rich depth per tactile doc */
+  --shadow-primary: 0 2px 4px rgba(111, 3, 2, 0.2), 0 4px 12px rgba(111, 3, 2, 0.12);
+  --shadow-primary-lg: 0 4px 8px rgba(111, 3, 2, 0.25), 0 8px 20px rgba(111, 3, 2, 0.15);
+  --shadow-neutral: 0 1px 2px rgba(28, 28, 40, 0.08), 0 2px 4px rgba(28, 28, 40, 0.06);
+  --shadow-neutral-md: 0 2px 4px rgba(28, 28, 40, 0.06), 0 4px 12px rgba(28, 28, 40, 0.08);
+  --shadow-neutral-lg: 0 4px 6px rgba(28, 28, 40, 0.08), 0 10px 24px rgba(28, 28, 40, 0.1);
+
+  /* Top highlight (light from 12:00) - for every elevated element */
+  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  --highlight-top-strong: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  --highlight-top-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* Sunken effect: dark inset top, light inset bottom */
+  --shadow-inset-sunken: inset 0 2px 4px rgba(28, 28, 40, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-inset-sunken-focus: inset 0 1px 2px rgba(28, 28, 40, 0.08), inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+
+  /* Squishy click: depress into screen */
+  --shadow-inset-press: inset 0 2px 4px rgba(28, 28, 40, 0.15), inset 0 0 0 1px rgba(28, 28, 40, 0.06);
+
+  --border-color: rgba(28, 28, 40, 0.08);
+  --border-hover: rgba(28, 28, 40, 0.12);
+
+  --event-calling: var(--teaser-color);
   --event-complete: #48bb78;
   --event-error: var(--brand-mandy);
-  
-  /* Tactile Shadows - Navy-tinted (not pure black) */
-  /* Level 1: Close to surface */
-  --shadow-sm: 
-    0 1px 2px rgba(26, 54, 93, 0.06),
-    0 1px 3px rgba(26, 54, 93, 0.08);
-  /* Level 2: Slight elevation */
-  --shadow-md: 
-    0 2px 4px rgba(26, 54, 93, 0.04),
-    0 4px 12px rgba(26, 54, 93, 0.08);
-  /* Level 3: Elevated (hover state) */
-  --shadow-lg: 
-    0 4px 6px rgba(26, 54, 93, 0.05),
-    0 10px 24px rgba(26, 54, 93, 0.1);
-  /* Special: Gold glow for accent elements */
-  --shadow-gold: 
-    0 4px 16px rgba(251, 222, 8, 0.3),
-    0 0 0 1px rgba(251, 222, 8, 0.1);
-  /* Inset shadow for sunken elements */
-  --shadow-inset: 
-    inset 0 2px 4px rgba(26, 54, 93, 0.08),
-    inset 0 0 0 1px rgba(26, 54, 93, 0.04);
-  
-  /* Top highlight (light from ceiling) */
-  --highlight-top: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --highlight-top-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  
-  /* Typography */
+
   --font-display: 'Source Serif 4', Georgia, serif;
   --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
-  
-  /* Spacing & Radius */
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
-  
-  /* Transitions */
+
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -179,8 +170,8 @@ body::before {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 4px var(--brand-gold); }
-  50% { box-shadow: 0 0 16px var(--brand-gold); }
+  0%, 100% { box-shadow: 0 0 4px var(--teaser-color); }
+  50% { box-shadow: 0 0 16px var(--teaser-color); }
 }
 
 @keyframes blink {
@@ -221,25 +212,17 @@ body::before {
 }
 
 /* ============================================
-   HEADER - Tactile with top highlight
+   HEADER - Teaser + tactile (top highlight, bottom shadow, 12:00 light)
    ============================================ */
 .header {
   flex-shrink: 0;
-  background: linear-gradient(
-    180deg,
-    var(--brand-navy-light) 0%,
-    var(--brand-navy) 8%,
-    var(--brand-navy-dark) 100%
-  );
-  /* Gold accent bar + bottom shadow for depth */
-  border-bottom: 3px solid var(--brand-gold);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 4px 12px rgba(15, 39, 68, 0.3),
-    0 1px 3px rgba(15, 39, 68, 0.2);
+  background: var(--teaser-bg);
+  color: var(--teaser-color);
+  border-bottom: var(--teaser-border);
   padding: 0 16px;
   position: relative;
   z-index: 100;
+  box-shadow: var(--highlight-top-subtle), 0 4px 12px rgba(111, 3, 2, 0.35), 0 1px 3px rgba(111, 3, 2, 0.2);
 }
 
 .header-content {
@@ -260,33 +243,18 @@ body::before {
 .brand-logo {
   width: 42px;
   height: 42px;
-  background: linear-gradient(
-    180deg,
-    var(--brand-gold-light) 0%,
-    var(--brand-gold) 50%,
-    var(--brand-gold-dark) 100%
-  );
+  background: transparent;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--brand-navy);
-  /* Tactile: top highlight + bottom shadow */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 2px 8px rgba(251, 222, 8, 0.4),
-    0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  padding: 4px;
+  padding: 2px;
   transition: all var(--transition-base);
 }
 
 .brand-logo:hover {
   transform: translateY(-1px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 4px 16px rgba(251, 222, 8, 0.5),
-    0 6px 20px rgba(0, 0, 0, 0.2);
 }
 
 .logo-image {
@@ -305,33 +273,26 @@ body::before {
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--brand-gold);
+  color: var(--teaser-color);
   margin: 0;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .brand-subtitle {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   margin: 0;
   letter-spacing: 0.04em;
   font-weight: 500;
   text-transform: uppercase;
-  /* AiPRL badge effect */
-  background: linear-gradient(
-    90deg,
-    rgba(251, 222, 8, 0.15) 0%,
-    rgba(251, 222, 8, 0.08) 100%
-  );
   padding: 2px 8px;
   border-radius: 4px;
   display: inline-block;
   margin-top: 2px;
 }
 
-/* Reset button - Tactile with depth */
+/* Reset button - Top highlight + bottom shadow (12:00), hover lift, squishy click */
 .reset-btn {
   width: 36px;
   height: 36px;
@@ -348,10 +309,7 @@ body::before {
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
-  /* Tactile: top highlight */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--highlight-top), 0 2px 4px rgba(111, 3, 2, 0.2), 0 1px 2px rgba(111, 3, 2, 0.12);
 }
 
 .reset-btn:hover {
@@ -360,19 +318,14 @@ body::before {
     rgba(255, 255, 255, 0.2) 0%,
     rgba(255, 255, 255, 0.12) 100%
   );
-  color: var(--brand-gold);
+  color: var(--teaser-color);
   transform: translateY(-1px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--highlight-top), 0 4px 8px rgba(111, 3, 2, 0.25), 0 2px 4px rgba(111, 3, 2, 0.15);
 }
 
-/* Squishy click effect */
 .reset-btn:active {
   transform: translateY(0);
-  box-shadow: 
-    inset 0 2px 4px rgba(0, 0, 0, 0.2),
-    0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-inset-press), 0 1px 2px rgba(111, 3, 2, 0.1);
 }
 
 /* ============================================
@@ -425,41 +378,29 @@ body::before {
 }
 
 .avatar-user {
-  background: linear-gradient(
-    180deg,
-    var(--brand-navy-light) 0%,
-    var(--brand-navy) 50%,
-    var(--brand-navy-dark) 100%
-  );
+  background: var(--brand-primary);
   color: white;
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 2px 6px rgba(26, 54, 93, 0.25);
+  box-shadow: var(--highlight-top-subtle), 0 2px 6px rgba(111, 3, 2, 0.25), 0 1px 3px rgba(111, 3, 2, 0.15);
 }
 
 .avatar-agent {
-  background: linear-gradient(
-    180deg,
-    var(--brand-gold-light) 0%,
-    var(--brand-gold) 50%,
-    var(--brand-gold-dark) 100%
-  );
-  color: var(--brand-navy);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 2px 8px rgba(251, 222, 8, 0.3);
+  background: var(--bubble-bg);
+  color: var(--bubble-color);
+  box-shadow: var(--highlight-top-subtle), 0 0 0 1px var(--bubble-outline), 0 2px 4px rgba(111, 3, 2, 0.2);
+  overflow: hidden;
+  padding: 0;
+}
+
+.avatar-agent img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .avatar-system {
-  background: linear-gradient(
-    180deg,
-    var(--layer-2) 0%,
-    var(--bg-tertiary) 100%
-  );
-  color: var(--brand-gold);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    0 2px 4px rgba(26, 54, 93, 0.1);
+  background: var(--layer-3);
+  color: var(--brand-primary);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral);
 }
 
 .message-body {
@@ -482,58 +423,33 @@ body::before {
   transition: all var(--transition-fast);
 }
 
-/* User bubble - elevated with navy depth */
+/* User bubble - top highlight + bottom shadow (tinted), 12:00 light */
 .bubble-user {
-  background: linear-gradient(
-    180deg,
-    var(--brand-navy-light) 0%,
-    var(--brand-navy) 100%
-  );
+  background: var(--brand-primary);
   color: white;
   border-bottom-right-radius: var(--radius-sm);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 2px 4px rgba(26, 54, 93, 0.15),
-    0 4px 12px rgba(26, 54, 93, 0.1);
+  box-shadow: var(--highlight-top-subtle), 0 2px 4px rgba(111, 3, 2, 0.2), 0 4px 12px rgba(111, 3, 2, 0.1);
 }
 
-/* Agent bubble - elevated white card */
+/* Agent bubble - bubble.bg/color/outline + tactile depth */
 .bubble-agent {
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #fafbfc 100%
-  );
-  color: var(--text-primary);
+  background: var(--bubble-bg);
+  color: var(--bubble-color);
+  border: 1px solid var(--bubble-outline);
   border-bottom-left-radius: var(--radius-sm);
-  /* No border needed - shadows create separation */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 1px 2px rgba(26, 54, 93, 0.06),
-    0 3px 8px rgba(26, 54, 93, 0.08),
-    0 0 0 1px rgba(26, 54, 93, 0.04);
+  box-shadow: var(--highlight-top-subtle), 0 2px 4px rgba(111, 3, 2, 0.2), 0 4px 12px rgba(111, 3, 2, 0.1);
 }
 
 .bubble-agent:hover {
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 2px 4px rgba(26, 54, 93, 0.08),
-    0 6px 16px rgba(26, 54, 93, 0.1),
-    0 0 0 1px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--highlight-top-subtle), 0 4px 8px rgba(111, 3, 2, 0.22), 0 6px 16px rgba(111, 3, 2, 0.12);
 }
 
-/* System bubble - subtle sunken feel */
+/* System bubble - sunken feel (dark inset top, light bottom) */
 .bubble-system {
-  background: linear-gradient(
-    180deg,
-    var(--bg-tertiary) 0%,
-    #e5e7eb 100%
-  );
+  background: linear-gradient(180deg, var(--bg-tertiary) 0%, #e5e7eb 100%);
   color: var(--text-secondary);
   border-bottom-left-radius: var(--radius-sm);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 1px 3px rgba(26, 54, 93, 0.06);
+  box-shadow: inset 0 1px 2px rgba(28, 28, 40, 0.08), inset 0 -1px 0 rgba(255, 255, 255, 0.5), 0 1px 2px rgba(28, 28, 40, 0.06);
 }
 
 .message-content {
@@ -554,15 +470,16 @@ body::before {
 }
 
 .message-link {
-  color: var(--brand-navy);
+  color: var(--brand-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
   word-break: break-all;
   transition: color var(--transition-fast);
 }
 
-.bubble-user .message-link {
-  color: var(--brand-gold);
+.bubble-user .message-link,
+.bubble-agent .message-link {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .message-link:hover {
@@ -580,63 +497,41 @@ body::before {
   justify-content: flex-end;
 }
 
-/* Tool badges - Tactile mini pills */
+/* Tool badges - Top highlight + tinted shadow, hover lift */
 .tool-badge-mini {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f5f6f8 100%
-  );
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
   border: none;
   border-radius: var(--radius-sm);
   font-size: 0.6875rem;
   font-family: var(--font-body);
   font-weight: 500;
   color: var(--text-secondary);
-  /* Tactile mini badge */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 1px 2px rgba(26, 54, 93, 0.06),
-    0 2px 4px rgba(26, 54, 93, 0.04);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral);
   transition: all var(--transition-fast);
 }
 
 .tool-badge-mini:hover {
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #fffef8 100%
-  );
-  color: var(--brand-navy);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 2px 4px rgba(251, 222, 8, 0.15),
-    0 3px 8px rgba(26, 54, 93, 0.08);
+  background: linear-gradient(180deg, var(--layer-3) 0%, #f8f8f8 100%);
+  color: var(--brand-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral-md), 0 2px 6px rgba(111, 3, 2, 0.08);
 }
 
 /* ============================================
-   EVENT FEED - LIVE STREAMING (Tactile Dark Panel)
+   EVENT FEED - Teaser panel + tactile (top highlight, tinted bottom shadow)
    ============================================ */
 .event-feed {
-  background: linear-gradient(
-    180deg,
-    var(--brand-navy-light) 0%,
-    var(--brand-navy) 15%,
-    var(--brand-navy-dark) 100%
-  );
+  background: var(--teaser-bg);
+  color: var(--teaser-color);
+  border: var(--teaser-border);
   border-radius: var(--radius-lg);
   margin: 12px 0;
   overflow: hidden;
-  /* Tactile: top highlight + bottom shadow */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 4px rgba(15, 39, 68, 0.15),
-    0 8px 24px rgba(15, 39, 68, 0.2),
-    0 0 0 1px rgba(251, 222, 8, 0.15);
+  box-shadow: var(--highlight-top-subtle), 0 4px 12px rgba(111, 3, 2, 0.3), 0 8px 24px rgba(111, 3, 2, 0.15);
 }
 
 .event-feed-header {
@@ -644,29 +539,21 @@ body::before {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0.15) 0%,
-    rgba(0, 0, 0, 0.25) 100%
-  );
+  background: rgba(111, 3, 2, 0.4);
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--brand-gold);
+  color: var(--teaser-color);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  /* Sunken header effect */
-  box-shadow: 
-    inset 0 1px 2px rgba(0, 0, 0, 0.15),
-    0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 2px rgba(111, 3, 2, 0.5), 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .event-feed-indicator {
   width: 8px;
   height: 8px;
-  background: var(--brand-gold);
+  background: var(--teaser-color);
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 8px rgba(251, 222, 8, 0.5);
 }
 
 .event-feed-content {
@@ -694,29 +581,15 @@ body::before {
 }
 
 .event-calling {
-  background: linear-gradient(
-    180deg,
-    rgba(251, 222, 8, 0.2) 0%,
-    rgba(251, 222, 8, 0.12) 100%
-  );
-  color: var(--brand-gold);
-  box-shadow: 
-    inset 0 1px 0 rgba(251, 222, 8, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(251, 222, 8, 0.25);
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--teaser-color);
+  box-shadow: var(--highlight-top-subtle), 0 2px 4px rgba(111, 3, 2, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .event-complete {
-  background: linear-gradient(
-    180deg,
-    rgba(72, 187, 120, 0.2) 0%,
-    rgba(72, 187, 120, 0.12) 100%
-  );
+  background: linear-gradient(180deg, rgba(72, 187, 120, 0.2) 0%, rgba(72, 187, 120, 0.12) 100%);
   color: #68d391;
-  box-shadow: 
-    inset 0 1px 0 rgba(72, 187, 120, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(72, 187, 120, 0.25);
+  box-shadow: inset 0 1px 0 rgba(72, 187, 120, 0.35), 0 2px 4px rgba(28, 28, 40, 0.1), 0 0 0 1px rgba(72, 187, 120, 0.25);
 }
 
 .event-icon {
@@ -755,10 +628,9 @@ body::before {
 .thinking-dot {
   width: 7px;
   height: 7px;
-  background: var(--brand-gold);
+  background: var(--teaser-color);
   border-radius: 50%;
   animation: dotPulse 1.4s ease-in-out infinite;
-  box-shadow: 0 0 6px rgba(251, 222, 8, 0.4);
 }
 
 .thinking-dot:nth-child(1) { animation-delay: 0s; }
@@ -771,30 +643,26 @@ body::before {
   font-weight: 500;
 }
 
-/* Streaming Preview - Sunken card */
+/* Streaming Preview - Sunken (dark inset top, light inset bottom) */
 .streaming-preview {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(111, 3, 2, 0.35);
   border-radius: var(--radius-sm);
   margin-top: 4px;
-  /* Sunken/inset effect */
-  box-shadow: 
-    inset 0 2px 4px rgba(0, 0, 0, 0.2),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 2px 4px rgba(111, 3, 2, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .streaming-cursor {
   width: 2px;
   height: 16px;
-  background: var(--brand-gold);
+  background: var(--teaser-color);
   border-radius: 1px;
   animation: blink 0.8s step-end infinite;
   flex-shrink: 0;
   margin-top: 2px;
-  box-shadow: 0 0 4px rgba(251, 222, 8, 0.5);
 }
 
 .streaming-text {
@@ -830,7 +698,7 @@ body::before {
   display: none;
 }
 
-/* Carousel buttons with tactile depth */
+/* Carousel buttons - Top highlight + tinted shadow, hover lift, squishy click */
 .carousel-btn {
   position: absolute;
   top: 50%;
@@ -838,11 +706,7 @@ body::before {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f8f9fa 100%
-  );
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
@@ -851,33 +715,19 @@ body::before {
   justify-content: center;
   transition: all var(--transition-fast);
   z-index: 10;
-  /* Tactile button */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 2px 4px rgba(26, 54, 93, 0.1),
-    0 4px 8px rgba(26, 54, 93, 0.08);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral-md);
 }
 
 .carousel-btn:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    var(--brand-gold-light) 0%,
-    var(--brand-gold) 100%
-  );
-  color: var(--brand-navy);
+  background: var(--brand-primary);
+  color: var(--teaser-color);
   transform: translateY(-50%) translateY(-2px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 4px 8px rgba(251, 222, 8, 0.3),
-    0 6px 16px rgba(26, 54, 93, 0.12);
+  box-shadow: var(--highlight-top-subtle), var(--shadow-primary-lg);
 }
 
-/* Squishy click */
 .carousel-btn:active:not(:disabled) {
   transform: translateY(-50%);
-  box-shadow: 
-    inset 0 2px 4px rgba(0, 0, 0, 0.1),
-    0 1px 2px rgba(26, 54, 93, 0.1);
+  box-shadow: var(--shadow-inset-press), 0 1px 2px rgba(111, 3, 2, 0.1);
 }
 
 .carousel-btn:disabled {
@@ -888,40 +738,25 @@ body::before {
 .carousel-btn-prev { left: -6px; }
 .carousel-btn-next { right: -6px; }
 
-/* Product Card - Tactile elevated card */
+/* Product Card - Top highlight + tinted shadow (Level 2), hover Level 3, squishy active */
 .product-card {
   flex-shrink: 0;
   width: 150px;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #fafbfc 100%
-  );
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
   border-radius: var(--radius-md);
   overflow: hidden;
   transition: all var(--transition-base);
-  /* Tactile card */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 1px 2px rgba(26, 54, 93, 0.06),
-    0 3px 8px rgba(26, 54, 93, 0.08);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral), var(--shadow-neutral-md);
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 4px 8px rgba(251, 222, 8, 0.2),
-    0 8px 24px rgba(26, 54, 93, 0.12),
-    0 0 0 2px rgba(251, 222, 8, 0.4);
+  box-shadow: var(--highlight-top-strong), 0 4px 8px rgba(111, 3, 2, 0.18), 0 8px 24px rgba(28, 28, 40, 0.12), 0 0 0 1px rgba(111, 3, 2, 0.2);
 }
 
-/* Squishy click on product card */
 .product-card:active {
   transform: translateY(-2px);
-  box-shadow: 
-    inset 0 2px 4px rgba(26, 54, 93, 0.08),
-    0 2px 4px rgba(26, 54, 93, 0.1);
+  box-shadow: var(--shadow-inset-press), 0 2px 4px rgba(28, 28, 40, 0.08);
 }
 
 .product-card-image {
@@ -931,20 +766,16 @@ body::before {
   background: var(--bg-tertiary);
 }
 
-/* Placeholder with sunken effect */
+/* Placeholder - sunken (dark inset top, light inset bottom) */
 .product-card-placeholder {
   width: 100%;
   aspect-ratio: 1;
-  background: linear-gradient(
-    180deg,
-    #e8eaed 0%,
-    #f0f2f5 100%
-  );
+  background: linear-gradient(180deg, var(--bg-tertiary) 0%, #e8eaed 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  box-shadow: inset 0 2px 4px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--shadow-inset-sunken);
 }
 
 .product-card-body {
@@ -971,7 +802,7 @@ body::before {
 .product-card-price {
   font-size: 0.875rem;
   font-weight: 700;
-  color: var(--brand-navy);
+  color: var(--brand-primary);
   margin: 0;
 }
 
@@ -989,26 +820,19 @@ body::before {
 }
 
 .product-card-link:hover {
-  color: var(--brand-navy);
-  background: rgba(26, 54, 93, 0.06);
+  color: var(--brand-primary);
+  background: rgba(111, 3, 2, 0.08);
 }
 
 /* ============================================
-   CHAT INPUT - Tactile Footer
+   CHAT INPUT - Tactile Footer (top highlight, tinted top shadow)
    ============================================ */
 .footer {
   flex-shrink: 0;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #fafbfc 100%
-  );
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
   padding: 12px 16px 16px;
   position: relative;
-  /* Tactile: Top shadow creates separation from content */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 -4px 12px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--highlight-top-strong), 0 -4px 12px rgba(28, 28, 40, 0.08);
 }
 
 .chat-input-container {
@@ -1026,7 +850,7 @@ body::before {
   flex: 1;
 }
 
-/* Textarea with sunken effect */
+/* Textarea - Sunken: dark inset top, light inset bottom (tactile doc) */
 .chat-textarea {
   width: 100%;
   padding: 12px 16px;
@@ -1035,19 +859,12 @@ body::before {
   font-family: var(--font-body);
   font-size: 0.9375rem;
   color: var(--text-primary);
-  background: linear-gradient(
-    180deg,
-    #f0f2f5 0%,
-    #f5f6f8 100%
-  );
+  background: linear-gradient(180deg, var(--bg-sunken) 0%, var(--bg-tertiary) 100%);
   resize: none;
   min-height: 48px;
   max-height: 120px;
   transition: all var(--transition-fast);
-  /* Sunken input field */
-  box-shadow: 
-    inset 0 2px 4px rgba(26, 54, 93, 0.08),
-    inset 0 0 0 1px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--shadow-inset-sunken);
 }
 
 .chat-textarea::placeholder {
@@ -1056,15 +873,8 @@ body::before {
 
 .chat-textarea:focus {
   outline: none;
-  background: linear-gradient(
-    180deg,
-    #f5f6f8 0%,
-    #fafbfc 100%
-  );
-  box-shadow: 
-    inset 0 1px 2px rgba(26, 54, 93, 0.06),
-    inset 0 0 0 1px rgba(251, 222, 8, 0.4),
-    0 0 0 3px rgba(251, 222, 8, 0.12);
+  background: linear-gradient(180deg, var(--layer-2) 0%, var(--layer-3) 100%);
+  box-shadow: var(--shadow-inset-sunken-focus), 0 0 0 3px rgba(111, 3, 2, 0.12);
 }
 
 .chat-textarea:disabled {
@@ -1073,53 +883,33 @@ body::before {
   opacity: 0.7;
 }
 
-/* Send button - Tactile elevated button */
+/* Send button - Top highlight + tinted bottom shadow, hover lift, squishy click */
 .send-btn {
   flex-shrink: 0;
   width: 48px;
   height: 48px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(
-    180deg,
-    var(--brand-navy-light) 0%,
-    var(--brand-navy) 50%,
-    var(--brand-navy-dark) 100%
-  );
+  background: var(--brand-primary);
   border: none;
-  color: white;
+  color: var(--teaser-color);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
-  /* Tactile button */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 2px 4px rgba(26, 54, 93, 0.2),
-    0 4px 12px rgba(26, 54, 93, 0.15);
+  box-shadow: var(--highlight-top-subtle), var(--shadow-primary);
 }
 
 .send-btn:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    var(--brand-gold-light) 0%,
-    var(--brand-gold) 50%,
-    var(--brand-gold-dark) 100%
-  );
-  color: var(--brand-navy);
+  background: var(--brand-primary-dark);
+  color: var(--teaser-color);
   transform: translateY(-2px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 4px 8px rgba(251, 222, 8, 0.35),
-    0 8px 20px rgba(26, 54, 93, 0.15);
+  box-shadow: var(--highlight-top-subtle), var(--shadow-primary-lg);
 }
 
-/* Squishy click */
 .send-btn:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 
-    inset 0 2px 6px rgba(0, 0, 0, 0.2),
-    0 1px 2px rgba(26, 54, 93, 0.15);
+  box-shadow: inset 0 2px 6px rgba(111, 3, 2, 0.35), 0 1px 2px rgba(111, 3, 2, 0.15);
 }
 
 .send-btn:disabled {
@@ -1127,32 +917,22 @@ body::before {
   cursor: not-allowed;
 }
 
-/* Cancel button */
+/* Cancel button - Tactile: top highlight, tinted shadow, hover lift, squishy active */
 .cancel-btn {
-  background: linear-gradient(
-    180deg,
-    #f06878 0%,
-    var(--brand-mandy) 50%,
-    #c73e4f 100%
-  );
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 2px 4px rgba(225, 84, 103, 0.25),
-    0 4px 12px rgba(225, 84, 103, 0.15);
+  background: linear-gradient(180deg, #f06878 0%, var(--brand-mandy) 50%, #c73e4f 100%);
+  box-shadow: var(--highlight-top), 0 2px 4px rgba(196, 30, 58, 0.3), 0 4px 12px rgba(196, 30, 58, 0.2);
 }
 
 .cancel-btn:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    #ff7a8a 0%,
-    #f06878 50%,
-    var(--brand-mandy) 100%
-  );
+  background: linear-gradient(180deg, #ff7a8a 0%, #f06878 50%, var(--brand-mandy) 100%);
   color: white;
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 4px 8px rgba(225, 84, 103, 0.35),
-    0 8px 20px rgba(225, 84, 103, 0.2);
+  transform: translateY(-2px);
+  box-shadow: var(--highlight-top), 0 4px 8px rgba(196, 30, 58, 0.35), 0 8px 20px rgba(196, 30, 58, 0.2);
+}
+
+.cancel-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 6px rgba(90, 2, 2, 0.4), 0 1px 2px rgba(196, 30, 58, 0.2);
 }
 
 /* Suggestion pills - Tactile */
@@ -1170,15 +950,12 @@ body::before {
   display: none;
 }
 
+/* Suggestion pills - Top highlight + tinted shadow, hover lift, squishy click */
 .suggestion-btn {
   flex-shrink: 0;
   padding: 8px 14px;
   border-radius: var(--radius-xl);
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f5f6f8 100%
-  );
+  background: linear-gradient(180deg, var(--layer-3) 0%, var(--layer-2) 100%);
   border: none;
   font-family: var(--font-body);
   font-size: 0.8125rem;
@@ -1186,34 +963,19 @@ body::before {
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
-  /* Tactile pill */
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 1px 2px rgba(26, 54, 93, 0.08),
-    0 2px 6px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--highlight-top-strong), var(--shadow-neutral), var(--shadow-neutral-md);
 }
 
 .suggestion-btn:hover:not(:disabled) {
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #fffef5 100%
-  );
-  color: var(--brand-navy);
+  background: linear-gradient(180deg, var(--layer-3) 0%, #f8f8f8 100%);
+  color: var(--brand-primary);
   transform: translateY(-1px);
-  box-shadow: 
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    0 2px 4px rgba(251, 222, 8, 0.2),
-    0 4px 12px rgba(26, 54, 93, 0.1),
-    0 0 0 1px rgba(251, 222, 8, 0.4);
+  box-shadow: var(--highlight-top-strong), 0 2px 4px rgba(111, 3, 2, 0.12), 0 4px 12px rgba(28, 28, 40, 0.08), 0 0 0 1px rgba(111, 3, 2, 0.15);
 }
 
-/* Squishy click */
 .suggestion-btn:active:not(:disabled) {
   transform: translateY(0);
-  box-shadow: 
-    inset 0 2px 4px rgba(26, 54, 93, 0.08),
-    0 1px 2px rgba(26, 54, 93, 0.06);
+  box-shadow: var(--shadow-inset-press), 0 1px 2px rgba(28, 28, 40, 0.06);
 }
 
 .suggestion-btn:disabled {

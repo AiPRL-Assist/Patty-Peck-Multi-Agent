@@ -1,9 +1,11 @@
 /**
  * ChatMessage - Individual message display component
- * AiPRL branding with friendly tool names
+ * Bubble icon = AI persona avatar for each message from our AI
  */
-import { User, Bot, Zap, ShoppingBag, Sparkles, Database, BookOpen, Search } from 'lucide-react'
+import { User, Zap, ShoppingBag, Sparkles, Database, BookOpen, Search } from 'lucide-react'
 import ProductCarousel from './ProductCarousel'
+
+const BUBBLE_ICON_URL = 'https://res.cloudinary.com/diqbbssim/image/upload/v1771349436/t1ioo2vtk4s9vys4auyh.png'
 
 // Map internal tool names to friendly, user-facing descriptions
 const FRIENDLY_TOOL_NAMES = {
@@ -122,14 +124,14 @@ export function ChatMessage({ message }) {
   
   return (
     <div className={`chat-message ${isUser ? 'chat-message-user' : ''} ${isSystem ? 'chat-message-system' : ''}`}>
-      {/* Avatar */}
+      {/* Avatar: user icon, G (bubble) icon for AI persona, Zap for system */}
       <div className={`message-avatar ${isUser ? 'avatar-user' : isSystem ? 'avatar-system' : 'avatar-agent'}`}>
         {isUser ? (
           <User className="w-4 h-4" />
         ) : isSystem ? (
           <Zap className="w-4 h-4" />
         ) : (
-          <Bot className="w-4 h-4" />
+          <img src={BUBBLE_ICON_URL} alt="" aria-hidden />
         )}
       </div>
       

@@ -1,6 +1,5 @@
 /**
- * Gavigans Multi-Agent Platform - Webchat
- * Live streaming chat interface with real-time event display
+ * Iframe chat content - Live streaming chat with bubble/teaser theme
  * Powered by Google ADK
  */
 import { useState, useRef, useEffect } from 'react'
@@ -10,6 +9,8 @@ import ChatMessage from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import EventFeed from './components/EventFeed'
 import './index.css'
+
+const CLIENT_LOGO_URL = 'https://imageresizer.furnituredealer.net/img/remote/images.furnituredealer.net/img/dealer/13381/upload/logo/507d3c181b1545dc83336fd9cc1781cb.png?format=webp&quality=85'
 
 function App() {
   const [input, setInput] = useState('')
@@ -50,7 +51,7 @@ function App() {
         <div className="header-content">
           <div className="header-brand">
             <div className="brand-logo">
-              <span className="logo-emoji">🤖</span>
+              <img src={CLIENT_LOGO_URL} alt="" className="logo-image" />
             </div>
             <div className="brand-text">
               <h1 className="brand-title">Gavigans</h1>
