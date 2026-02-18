@@ -761,6 +761,7 @@ async def search_products(user_message: str) -> dict:
                         return {"result": "No products found. Try different keywords."}
 
                     lines = []
+                    carousel = []
                     for i, p in enumerate(products, 1):
                         name = p.get("product_name", "Unknown")
                         price = str(p.get("product_price", "")).split(",")[0].strip()
@@ -774,8 +775,17 @@ async def search_products(user_message: str) -> dict:
                             lines.append(f"   Link: {product_url}")
                         if image_url:
                             lines.append(f"   Image: {image_url}")
+                        carousel.append({
+                            "name": name,
+                            "price": price,
+                            "url": product_url,
+                            "image_url": image_url,
+                        })
 
-                    return {"result": f"Found {len(products)} products:\n" + "\n".join(lines)}
+                    return {
+                        "result": f"Found {len(products)} products:\n" + "\n".join(lines),
+                        "products": carousel,
+                    }
                 except Exception:
                     return {"result": "Search returned unexpected format. Try different keywords."}
             return {"result": f"Search unavailable (status {resp.status_code}). Try again shortly."}
