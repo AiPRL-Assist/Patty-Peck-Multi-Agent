@@ -787,9 +787,61 @@ async def create_ticket(
         return {"success": False, "error": str(e)}
 
 
+async def create_appointment(
+    title: str,
+    date: str,
+    customerName: str = "",
+    customerEmail: str = "",
+    customerPhone: str = "",
+    duration: int = 30,
+    appointment_type: str = "consultation",
+    notes: str = "",
+    syncToGoogle: bool = True
+) -> dict:
+    """Create an appointment for a customer.
+    
+    Args:
+        title: Short title for the appointment e.g. 'In-Store Consultation - Forest Hill'
+        date: Full ISO datetime string e.g. '2026-02-20T10:00:00Z' - MUST include time
+        customerName: Full name of the customer
+        customerEmail: Email address of the customer
+        customerPhone: Phone number of the customer
+        duration: Duration in minutes, default 30
+        appointment_type: Type of appointment e.g. 'consultation', 'virtual', 'in-store'
+        notes: Any additional notes about the appointment
+        syncToGoogle: Whether to sync to Google Calendar, default True
+    """
+    url = "https://gavigans-inbox.up.railway.app/api/calendar/appointments"
+    headers = {
+        "x-business-id": "gavigans",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "title": title,
+        "date": date,
+        "customerName": customerName,
+        "customerEmail": customerEmail,
+        "customerPhone": customerPhone,
+        "duration": duration,
+        "type": appointment_type,
+        "notes": notes,
+        "syncToGoogle": syncToGoogle
+    }
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code in (200, 201):
+                return {"success": True, "appointment": resp.json()}
+            return {"success": False, "error": f"Failed with status {resp.status_code}", "details": resp.text}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 TOOL_MAP = {
     "search_products": FunctionTool(search_products),
     "create_ticket": FunctionTool(create_ticket),
+    "create_appointment": FunctionTool(create_appointment),
 }
 
 
@@ -823,18 +875,49 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
         for config in AGENTS_CONFIG
     )
     
-    root_instruction = f"""You are the main routing agent for Gavigans Furniture. Your job is to understand the user's question and delegate it to the most appropriate specialist agent.
+    root_instruction = f"""You are the main routing agent for Gavigans Furniture. Your job is to understand the user's question and delegate it to the most appropriate specialist agent immediately. Do not answer questions yourself - always delegate to the right agent.
 
 Available agents:
 {agent_list}
 
-ROUTING RULES:
-- Questions about store hours, location, returns, shipping, payment → faq_agent
-- Questions about products, furniture, availability, recommendations → product_agent  
-- Issues, complaints, problems, need to create a ticket → ticketing_agent
+ROUTING RULES - read carefully and apply every time:
 
-Analyze the user's message and transfer to the most appropriate agent.
-If the question is very general or doesn't fit any agent, respond directly with a helpful message."""
+Route to faq_agent when:
+- User asks about store hours, locations, directions, or showrooms
+- User asks about financing, leasing, or payment options
+- User asks about delivery policies, pickup, warehouse hours
+- User asks about returns, cancellations, warranties, or service claims
+- User asks about careers or job openings
+- User has general questions about Gavigan's as a company
+- User is frustrated or angry and needs support but has NOT yet asked for a specific product
+- User asks about inventory availability at a specific store
+- User asks a general FAQ that does not involve products or booking
+
+Route to product_agent when:
+- User is looking for furniture, asking about specific products, or wants recommendations
+- User mentions any furniture category: sofa, sectional, mattress, bed, dining table, desk, chair, entertainment center, kids furniture, etc.
+- User wants to compare products or asks about product details
+- User provides a SKU number or product URL
+- User asks about clearance, sale items, or product availability
+- User says they want to buy something or asks how to purchase
+- User asks about custom furniture or product colors and configurations
+
+Route to ticketing_agent when:
+- User wants to book an appointment, whether in-store or virtual
+- User says they want to talk to a human, speak to someone, or get human support
+- User is extremely frustrated or angry and wants to escalate
+- User wants to connect to a specific showroom directly
+- User wants to schedule a consultation
+- User has already been helped by another agent and is now ready to book or submit a request
+- User has provided their details and is ready to proceed with a purchase follow-up
+
+IMPORTANT ROUTING NOTES:
+- If a user says "I want to buy this" or "how do I purchase" after seeing products, route to ticketing_agent to collect their details and create the purchase inquiry.
+- If a user asks about a product AND wants to book an appointment in the same message, route to product_agent first.
+- If a user just says "hi", "hello", or a very generic greeting with no other context, route to faq_agent to welcome them.
+- Never respond directly to the user yourself. Always delegate to the appropriate agent.
+- When in doubt between faq_agent and product_agent, choose product_agent if any furniture item is mentioned.
+- When in doubt between any agent and ticketing_agent, choose ticketing_agent if the user wants to take an action like booking or submitting something."""
 
     root = Agent(
         name="gavigans_agent",
