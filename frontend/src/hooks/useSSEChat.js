@@ -585,11 +585,24 @@ export function useSSEChat() {
         : accumulatedText || ''
       
       // 🆕 Check for AI paused marker - don't show any message, human will respond via SSE
-      if (finalText === '__AI_PAUSED__' || !finalText.trim()) {
+      if (finalText === '__AI_PAUSED__') {
         console.log('🚫 AI is paused - human agent will respond')
         setAiPaused(true) // Remember AI is paused for future messages
         setStatus('human_mode') // Set status to human mode
         // Don't add any message - human agent response will come via SSE listener
+        return
+      }
+      
+      // 🐛 FIX: Empty response is NOT the same as AI paused!
+      // An empty response might indicate a routing/transfer issue, not human takeover.
+      // Show a generic message instead of silently failing.
+      if (!finalText.trim()) {
+        console.warn('⚠️ Empty response from agent - may be a routing issue')
+        setMessages(prev => [...prev, {
+          role: 'agent',
+          text: 'I apologize, I encountered an issue processing your request. Please try again or rephrase your question.'
+        }])
+        setStatus('idle')
         return
       }
       

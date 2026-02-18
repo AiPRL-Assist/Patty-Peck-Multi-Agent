@@ -853,6 +853,14 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
     """
     Build multi-agent root with HARDCODED config.
     No database dependency - always works.
+
+    Per Google ADK Multi-Agent Systems docs (Coordinator/Dispatcher Pattern):
+    - Root agent uses LLM-Driven Delegation via transfer_to_agent
+    - Sub-agents need clear descriptions for routing decisions
+    - AutoFlow is implicit when sub_agents are present
+    - Callbacks go on ALL agents so they fire regardless of which agent
+      is active after a transfer (ADK Section 1.2: after transfer_to_agent,
+      the InvocationContext switches to the sub-agent for subsequent turns)
     """
     print("🔧 Building multi-agent from hardcoded config...")
     
@@ -866,7 +874,9 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
             model=config["model"],
             description=config["description"],
             instruction=config["instruction"],
-            tools=tools,  # Empty list is fine, None is not
+            tools=tools,
+            before_agent_callback=before_callback,
+            after_agent_callback=after_callback,
         )
         sub_agents.append(agent)
     
@@ -875,53 +885,20 @@ def build_root_agent_sync(before_callback=None, after_callback=None) -> Agent:
         for config in AGENTS_CONFIG
     )
     
-    root_instruction = f"""You are a ROUTING agent for Gavigans Furniture. You MUST NOT respond to users directly. Your ONLY job is to transfer the conversation to the correct specialist agent.
+    root_instruction = f"""You are the main routing assistant for Gavigans Furniture.
+Route user requests to the correct specialist agent.
 
-CRITICAL: You must ALWAYS use the transfer_to_agent function to route requests. NEVER generate a text response yourself. NEVER try to complete or interpret what the user might say. Just transfer immediately.
+Use product_agent for furniture, product search, sofas, mattresses, beds, tables, chairs, buying.
+Use faq_agent for store hours, locations, policies, financing, delivery, returns, careers, greetings.
+Use ticketing_agent for appointments, human support, frustrated customers, booking, escalation.
 
 Available agents:
-{agent_list}
-
-HOW TO ROUTE (use transfer_to_agent function):
-- For ANY furniture, product, sofa, mattress, bed, dining, chair question → transfer_to_agent(agent_name='product_agent')
-- For store hours, locations, policies, financing, delivery, returns, careers, FAQ → transfer_to_agent(agent_name='faq_agent')
-- For appointments, human support, frustrated customers, booking requests → transfer_to_agent(agent_name='ticketing_agent')
-- For greetings like "hi" or "hello" → transfer_to_agent(agent_name='faq_agent')
-
-ROUTING RULES:
-
-Route to product_agent when:
-- User mentions ANY furniture: sofa, sectional, mattress, bed, table, desk, chair, etc.
-- User is looking for products or wants recommendations
-- User provides a SKU or product URL
-- User asks about clearance, sales, or product availability
-- User wants to buy or purchase something
-
-Route to faq_agent when:
-- User asks about store hours, locations, directions
-- User asks about financing, delivery, returns, warranties
-- User asks about careers or company info
-- User has general questions that don't involve specific products
-- User sends a greeting with no specific request
-
-Route to ticketing_agent when:
-- User wants to book an appointment
-- User wants to talk to a human or get support
-- User is frustrated or wants to escalate
-- User wants to connect to a specific showroom
-- User is ready to submit details for a purchase follow-up
-
-ABSOLUTE RULES:
-1. NEVER generate text responses - only use transfer_to_agent
-2. NEVER try to complete the user's sentence or guess what they want to say
-3. NEVER ask clarifying questions - just transfer to the best matching agent
-4. If the user mentions furniture, ALWAYS route to product_agent
-5. Transfer IMMEDIATELY on every user message"""
+{agent_list}"""
 
     root = Agent(
         name="gavigans_agent",
         model="gemini-2.0-flash",
-        description="Gavigans multi-agent orchestrator",
+        description="Gavigans multi-agent orchestrator. Routes requests to specialist agents.",
         instruction=root_instruction,
         sub_agents=sub_agents,
         before_agent_callback=before_callback,

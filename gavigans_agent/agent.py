@@ -101,12 +101,20 @@ If the customer previously discussed products, preferences, or issues, acknowled
 
 async def before_agent_callback(callback_context: CallbackContext) -> types.Content | None:
     """
-    🔐 BEFORE AGENT CALLBACK
-    
-    1. Send webhook for USER message (so inbox sees it in realtime)
-    2. Check if AI is paused (human agent takeover)
-    3. Load cross-session memory for new sessions
-    4. Inject conversation summary into context if available
+    BEFORE AGENT CALLBACK - runs on root AND sub-agents.
+
+    Per Google ADK docs (Multi Agent Systems, Section 1.3a):
+    Parent and sub-agents share the same InvocationContext and temp: state.
+    We use temp: keys to prevent duplicate operations when both root and
+    sub-agent callbacks fire during a transfer within a single turn.
+    On subsequent turns where the sub-agent is active directly (after
+    transfer_to_agent), only the sub-agent's callback fires.
+
+    Steps:
+    1. Send webhook for user message (once per turn via temp: guard)
+    2. Check if AI is paused (always - blocks all agents)
+    3. Load cross-session memory for new sessions (once per turn)
+    4. Inject memory context (once per turn)
     """
     if not ADK_AVAILABLE:
         return None
@@ -116,35 +124,41 @@ async def before_agent_callback(callback_context: CallbackContext) -> types.Cont
     
     # ============================================
     # STEP 0: SEND WEBHOOK FOR USER MESSAGE
+    # Uses temp: key so it only fires once per turn even if
+    # both root and sub-agent callbacks run during a transfer.
     # ============================================
-    try:
-        events = getattr(session, 'events', [])
-        session_id = getattr(session, 'id', None)
-        
-        if events and session_id:
-            for event in reversed(events):
-                if event.author == "user" and event.content and event.content.parts:
-                    text_parts = [p.text for p in event.content.parts if hasattr(p, 'text') and p.text]
-                    if text_parts:
-                        user_message = " ".join(text_parts).strip()
-                        if user_message:
-                            is_new = len(events) <= 1
-                            asyncio.create_task(_send_webhook_to_inbox(
-                                conversation_id=session_id,
-                                message_id=f'user_{datetime.now().timestamp()}',
-                                message=user_message[:500],
-                                sender_name="user",
-                                sender_type="user",
-                                is_new_conversation=is_new,
-                                user_id=session.user_id if hasattr(session, 'user_id') else "default"
-                            ))
-                            print(f"📤 User message webhook queued: {session_id[:8]}...")
-                            break
-    except Exception as e:
-        print(f"⚠️ User webhook error (non-fatal): {e}")
+    if not state.get('temp:user_webhook_sent'):
+        try:
+            events = getattr(session, 'events', [])
+            session_id = getattr(session, 'id', None)
+            
+            if events and session_id:
+                for event in reversed(events):
+                    if event.author == "user" and event.content and event.content.parts:
+                        text_parts = [p.text for p in event.content.parts if hasattr(p, 'text') and p.text]
+                        if text_parts:
+                            user_message = " ".join(text_parts).strip()
+                            if user_message:
+                                is_new = len(events) <= 1
+                                asyncio.create_task(_send_webhook_to_inbox(
+                                    conversation_id=session_id,
+                                    message_id=f'user_{datetime.now().timestamp()}',
+                                    message=user_message[:500],
+                                    sender_name="user",
+                                    sender_type="user",
+                                    is_new_conversation=is_new,
+                                    user_id=session.user_id if hasattr(session, 'user_id') else "default"
+                                ))
+                                print(f"📤 User message webhook queued: {session_id[:8]}...")
+                                state['temp:user_webhook_sent'] = True
+                                break
+        except Exception as e:
+            print(f"⚠️ User webhook error (non-fatal): {e}")
     
     # ============================================
     # STEP 1: CHECK IF AI IS PAUSED
+    # Always check on every agent - if a human has taken over,
+    # no agent (root or sub) should process.
     # ============================================
     ai_paused = state.get('ai_paused', False)
     
@@ -157,43 +171,41 @@ async def before_agent_callback(callback_context: CallbackContext) -> types.Cont
     
     # ============================================
     # STEP 2: CROSS-SESSION MEMORY (new sessions)
+    # Once per turn via temp: guard.
     # ============================================
-    try:
-        events = getattr(session, 'events', []) or []
-        user_id = getattr(session, 'user_id', None) or "default"
-        
-        # On first message of a new session, check for previous session memory
-        if len(events) <= 1 and not state.get(STATE_KEY_USER_SUMMARY):
-            # Try to load from ADK's session_service if available
-            # The session_service is attached at app level, so we use a module-level ref
-            if _session_service_ref is not None:
-                cross_summary = await load_cross_session_memory(
-                    _session_service_ref, user_id
-                )
-                if cross_summary:
-                    state[STATE_KEY_USER_SUMMARY] = cross_summary
-                    logger.info(
-                        "📚 Loaded cross-session memory for user %s (%d chars)",
-                        user_id, len(cross_summary)
+    if not state.get('temp:memory_loaded'):
+        try:
+            events = getattr(session, 'events', []) or []
+            user_id = getattr(session, 'user_id', None) or "default"
+            
+            if len(events) <= 1 and not state.get(STATE_KEY_USER_SUMMARY):
+                if _session_service_ref is not None:
+                    cross_summary = await load_cross_session_memory(
+                        _session_service_ref, user_id
                     )
-    except Exception as e:
-        logger.warning("⚠️ Cross-session memory load error (non-fatal): %s", e)
+                    if cross_summary:
+                        state[STATE_KEY_USER_SUMMARY] = cross_summary
+                        logger.info(
+                            "📚 Loaded cross-session memory for user %s (%d chars)",
+                            user_id, len(cross_summary)
+                        )
+            state['temp:memory_loaded'] = True
+        except Exception as e:
+            logger.warning("⚠️ Cross-session memory load error (non-fatal): %s", e)
     
     # ============================================
     # STEP 3: INJECT MEMORY CONTEXT
+    # Once per turn via temp: guard.
     # ============================================
-    # build_memory_context checks state for summaries and returns a context string.
-    # The ADK will prepend this to the conversation context automatically
-    # via the agent instruction + state. We store it in state so the
-    # instruction can reference it, but the actual injection happens
-    # through the agent's natural context window.
-    try:
-        memory_context = build_memory_context(state)
-        if memory_context:
-            state["_memory_context"] = memory_context
-            logger.info("🧠 Memory context injected (%d chars)", len(memory_context))
-    except Exception as e:
-        logger.warning("⚠️ Memory context build error (non-fatal): %s", e)
+    if not state.get('temp:memory_injected'):
+        try:
+            memory_context = build_memory_context(state)
+            if memory_context:
+                state["_memory_context"] = memory_context
+                logger.info("🧠 Memory context injected (%d chars)", len(memory_context))
+            state['temp:memory_injected'] = True
+        except Exception as e:
+            logger.warning("⚠️ Memory context build error (non-fatal): %s", e)
     
     return None
 
@@ -204,11 +216,16 @@ async def before_agent_callback(callback_context: CallbackContext) -> types.Cont
 
 async def after_agent_callback(callback_context: CallbackContext) -> types.Content | None:
     """
-    📤 AFTER AGENT CALLBACK
-    
-    1. Persist last_message_preview and message_count in session.state
-    2. Send webhook notification to Inbox for real-time SSE broadcast
-    3. Check if conversation needs summarization (threshold-based)
+    AFTER AGENT CALLBACK - runs on root AND sub-agents.
+
+    Per Google ADK docs (Multi Agent Systems, Section 1.3a):
+    Uses temp: keys to prevent duplicate webhook sends when both
+    root and sub-agent after_callbacks fire during a single turn.
+
+    Steps:
+    1. Persist message_count and last_message_preview (idempotent, always runs)
+    2. Send bot response webhook (once per turn via temp: guard)
+    3. Summarization check (once per turn via temp: guard)
     """
     if not ADK_AVAILABLE:
         return None
@@ -230,10 +247,10 @@ async def after_agent_callback(callback_context: CallbackContext) -> types.Conte
         
         is_new_conversation = len(events) <= 2
         
-        # Persist state for list_sessions sidebar
+        # Persist state for list_sessions sidebar (idempotent - safe to run multiple times)
         state["message_count"] = len(events)
         
-        # Find last user message for preview
+        # Find last user message for preview (idempotent)
         for event in reversed(events):
             if event.author == "user" and event.content and event.content.parts:
                 text_parts = [p.text for p in event.content.parts if hasattr(p, 'text') and p.text]
@@ -243,54 +260,50 @@ async def after_agent_callback(callback_context: CallbackContext) -> types.Conte
                         state["last_message_preview"] = user_message[:100]
                         break
         
-        # Send webhook for bot response
-        last_event = events[-1]
-        content = getattr(last_event, 'content', None)
-        if not content:
-            return None
-        
-        parts = getattr(content, 'parts', [])
-        text_parts = [p.text for p in parts if hasattr(p, 'text') and p.text]
-        message_text = ' '.join(text_parts).strip()
-        
-        if message_text == '__AI_PAUSED__':
-            return None
-        
-        if not message_text:
-            return None
-        
-        asyncio.create_task(_send_webhook_to_inbox(
-            conversation_id=session_id,
-            message_id=getattr(last_event, 'id', f'evt_{datetime.now().timestamp()}'),
-            message=message_text[:500],
-            sender_name="gavigans_agent",
-            sender_type="bot",
-            is_new_conversation=is_new_conversation
-        ))
-        
-        print(f"📤 Webhook queued for Inbox: {session_id[:8]}...")
+        # Send webhook for bot response (once per turn via temp: guard)
+        if not state.get('temp:bot_webhook_sent'):
+            last_event = events[-1]
+            content = getattr(last_event, 'content', None)
+            if content:
+                parts = getattr(content, 'parts', [])
+                text_parts = [p.text for p in parts if hasattr(p, 'text') and p.text]
+                message_text = ' '.join(text_parts).strip()
+                
+                if message_text and message_text != '__AI_PAUSED__':
+                    asyncio.create_task(_send_webhook_to_inbox(
+                        conversation_id=session_id,
+                        message_id=getattr(last_event, 'id', f'evt_{datetime.now().timestamp()}'),
+                        message=message_text[:500],
+                        sender_name="gavigans_agent",
+                        sender_type="bot",
+                        is_new_conversation=is_new_conversation
+                    ))
+                    state['temp:bot_webhook_sent'] = True
+                    print(f"📤 Webhook queued for Inbox: {session_id[:8]}...")
         
     except Exception as e:
         print(f"⚠️ after_agent_callback error (non-fatal): {e}")
     
     # ============================================
-    # STEP 3: CONVERSATION SUMMARIZATION
+    # SUMMARIZATION (once per turn via temp: guard)
     # ============================================
-    try:
-        session = callback_context.session
-        state = callback_context.state
-        
-        if session:
-            state_updates = await maybe_summarize_session(session, state)
-            if state_updates:
-                for key, value in state_updates.items():
-                    state[key] = value
-                logger.info(
-                    "📝 Conversation summarized for session %s",
-                    getattr(session, 'id', '?')[:8]
-                )
-    except Exception as e:
-        logger.warning("⚠️ Summarization error (non-fatal): %s", e)
+    if not state.get('temp:summarized'):
+        try:
+            session = callback_context.session
+            state = callback_context.state
+            
+            if session:
+                state_updates = await maybe_summarize_session(session, state)
+                if state_updates:
+                    for key, value in state_updates.items():
+                        state[key] = value
+                    logger.info(
+                        "📝 Conversation summarized for session %s",
+                        getattr(session, 'id', '?')[:8]
+                    )
+                state['temp:summarized'] = True
+        except Exception as e:
+            logger.warning("⚠️ Summarization error (non-fatal): %s", e)
     
     return None
 
