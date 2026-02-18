@@ -310,8 +310,8 @@ export function useSSEChat() {
       listenEventSourceRef.current.close()
     }
 
-    // SSE endpoint is on the backend server, not Vite dev server
-    const backendUrl = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : 'http://localhost:8000'
+    // SSE endpoint is on the backend server - use current origin in production
+    const backendUrl = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin
     const listenUrl = `${backendUrl}/api/inbox/listen/${sessionId}?user_id=${userId}`
     console.log('🎧 Connecting SSE for incoming messages:', listenUrl)
     
