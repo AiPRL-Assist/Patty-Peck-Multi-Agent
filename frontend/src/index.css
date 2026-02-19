@@ -644,25 +644,28 @@ body::before {
   animation: glow 1.5s ease-in-out infinite;
 }
 
-/* Thinking Indicator */
+/* Thinking Indicator — iPhone iMessage-style typing bubble */
 .thinking-indicator {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  background: #e5e5ea;
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  margin: 4px 0;
 }
 
 .thinking-dots {
   display: flex;
   gap: 5px;
+  align-items: center;
 }
 
 .thinking-dot {
-  width: 7px;
-  height: 7px;
-  background: var(--teaser-color);
+  width: 8px;
+  height: 8px;
+  background: #8e8e93;
   border-radius: 50%;
   animation: dotPulse 1.4s ease-in-out infinite;
 }
@@ -670,12 +673,6 @@ body::before {
 .thinking-dot:nth-child(1) { animation-delay: 0s; }
 .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-
-.thinking-text {
-  font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.75);
-  font-weight: 500;
-}
 
 /* Streaming Preview - Sunken (dark inset top, light inset bottom) */
 .streaming-preview {
