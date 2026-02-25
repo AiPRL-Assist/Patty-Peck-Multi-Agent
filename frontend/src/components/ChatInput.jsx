@@ -2,14 +2,21 @@
  * ChatInput - Message input with quick suggestions
  * AiPRL powered assistant
  */
-import { useRef, useEffect } from 'react'
-import { Send, Loader2, StopCircle } from 'lucide-react'
+import { useRef, useEffect, useState } from 'react'
+import { ArrowRight, Loader2, StopCircle } from 'lucide-react'
 
 const SUGGESTIONS = [
-  'What are your store hours?',
+  'What are your hours?',
   'Tell me about financing',
-  'Book an appointment',
-  'Help me find furniture'
+  'Schedule service',
+  'Help me find a Honda'
+]
+
+const PLACEHOLDER_PHRASES = [
+  'Ask about vehicles',
+  'Tell me about financing',
+  'Schedule service',
+  'Help me find a Honda'
 ]
 
 export function ChatInput({ value, onChange, onSend, onCancel, status }) {
@@ -18,9 +25,44 @@ export function ChatInput({ value, onChange, onSend, onCancel, status }) {
   const isStreaming = status === 'streaming'
   const isBusy = isLoading || isStreaming
 
+  const [placeholderText, setPlaceholderText] = useState('')
+  const [phraseIndex, setPhraseIndex] = useState(0)
+  const [charIndex, setCharIndex] = useState(0)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    const phrase = PLACEHOLDER_PHRASES[phraseIndex]
+    const typingSpeed = isDeleting ? 50 : 100
+    const pauseAfterType = 2500
+    const pauseAfterDelete = 500
+
+    const timer = setTimeout(() => {
+      if (isDeleting) {
+        if (charIndex > 0) {
+          setPlaceholderText(phrase.substring(0, charIndex - 1))
+          setCharIndex((i) => i - 1)
+        } else {
+          setIsDeleting(false)
+          setPhraseIndex((prev) => (prev + 1) % PLACEHOLDER_PHRASES.length)
+        }
+      } else {
+        if (charIndex < phrase.length) {
+          setPlaceholderText(phrase.substring(0, charIndex + 1))
+          setCharIndex((i) => i + 1)
+        } else {
+          setIsDeleting(true)
+        }
+      }
+    }, isDeleting
+      ? (charIndex > 0 ? typingSpeed : pauseAfterDelete)
+      : (charIndex < phrase.length ? typingSpeed : pauseAfterType))
+
+    return () => clearTimeout(timer)
+  }, [phraseIndex, charIndex, isDeleting])
 
   const handleSubmit = (e) => {
     e?.preventDefault()
@@ -43,21 +85,41 @@ export function ChatInput({ value, onChange, onSend, onCancel, status }) {
 
   return (
     <div className="chat-input-container">
-      <form onSubmit={handleSubmit} className="chat-input-form">
-        <div className="input-wrapper">
-          <textarea
-            ref={inputRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about furniture, locations, appointments..."
-            rows={1}
-            className="chat-textarea"
+      {/* Quick suggestions - above input */}
+      <div className="suggestions">
+        {SUGGESTIONS.map((suggestion) => (
+          <button
+            key={suggestion}
+            onClick={() => handleSuggestion(suggestion)}
+            className="suggestion-btn"
             disabled={isBusy}
-          />
-        </div>
-        
-        {isStreaming ? (
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+      <form onSubmit={handleSubmit} className="chat-input-form">
+        <div className="chat-input-bar">
+          <div className="input-wrapper input-wrapper-relative">
+            <textarea
+              ref={inputRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder=""
+              rows={1}
+              className="chat-textarea"
+              disabled={isBusy}
+              aria-label="Type your message"
+            />
+            {!value.trim() && (
+              <div className="animated-placeholder" aria-hidden>
+                {placeholderText}
+                <span className="placeholder-cursor" />
+              </div>
+            )}
+          </div>
+          {isStreaming ? (
           <button
             type="button"
             onClick={onCancel}
@@ -76,25 +138,12 @@ export function ChatInput({ value, onChange, onSend, onCancel, status }) {
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
-              <Send className="w-5 h-5" />
+              <ArrowRight className="w-5 h-5" />
             )}
           </button>
         )}
+        </div>
       </form>
-      
-      {/* Quick suggestions */}
-      <div className="suggestions">
-        {SUGGESTIONS.map((suggestion) => (
-          <button
-            key={suggestion}
-            onClick={() => handleSuggestion(suggestion)}
-            className="suggestion-btn"
-            disabled={isBusy}
-          >
-            {suggestion}
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

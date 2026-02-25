@@ -7,9 +7,9 @@ import { useSSEChat } from './hooks/useSSEChat'
 import ChatMessage from './components/ChatMessage'
 import ChatInput from './components/ChatInput'
 import EventFeed from './components/EventFeed'
+import SkeletonMessage from './components/SkeletonMessage'
 import './index.css'
-
-const CLIENT_LOGO_URL = 'https://imageresizer.furnituredealer.net/img/remote/images.furnituredealer.net/img/dealer/13381/upload/logo/507d3c181b1545dc83336fd9cc1781cb.png?format=webp&quality=85'
+import PattyPeckLogo from './assets/PattyPeck.png'
 
 function App() {
   const [input, setInput] = useState('')
@@ -26,7 +26,8 @@ function App() {
     hasPendingRecovery,
     pendingMessageCount,
     confirmRecovery,
-    declineRecovery
+    declineRecovery,
+    isInitializing
   } = useSSEChat()
 
   // Auto-scroll to bottom
@@ -44,7 +45,7 @@ function App() {
 
   const isStreaming = status === 'streaming'
   const isLoading = status === 'loading'
-  const isHumanMode = status === 'human_mode' || aiPaused  // 🆕 Don't show "thinking" in human mode
+  const isHumanMode = status === 'human_mode' || aiPaused  // Don't show "thinking" in human mode
 
   return (
     <div className="app">
@@ -53,12 +54,9 @@ function App() {
         <div className="header-content">
           <div className="header-brand">
             <div className="brand-logo">
-              <img src={CLIENT_LOGO_URL} alt="" className="logo-image" />
+              <img src={PattyPeckLogo} alt="Patty Peck Honda" className="logo-image" />
             </div>
-            <div className="brand-text">
-              <h1 className="brand-title">Gavigans</h1>
-              <p className="brand-subtitle">Multi-Agent Platform</p>
-            </div>
+            <p className="brand-subtitle">AI Assistant</p>
           </div>
         </div>
       </header>
@@ -66,12 +64,22 @@ function App() {
       {/* Messages */}
       <main className="messages-container">
         <div className="messages">
-          {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
-          ))}
+          {/* Initial loading skeleton */}
+          {isInitializing ? (
+            <>
+              <SkeletonMessage variant="agent" />
+              <SkeletonMessage variant="user" />
+            </>
+          ) : (
+            <>
+              {messages.map((message, index) => (
+                <ChatMessage key={index} message={message} />
+              ))}
+            </>
+          )}
           
           {/* Session Recovery Prompt */}
-          {hasPendingRecovery && (
+          {!isInitializing && hasPendingRecovery && (
             <div className="recovery-prompt">
               <div className="recovery-content">
                 <p className="recovery-text">
@@ -95,13 +103,16 @@ function App() {
             </div>
           )}
           
-          {/* Live Event Feed - Shows during streaming (NOT in human mode) */}
-          {(isLoading || isStreaming) && !isHumanMode && (
-            <EventFeed 
-              events={liveEvents}
-              isStreaming={isLoading || isStreaming}
-              streamingText={streamingText}
-            />
+          {/* Skeleton + Event Feed - Shows during AI response (NOT in human mode) */}
+          {!isInitializing && (isLoading || isStreaming) && !isHumanMode && (
+            <>
+              <SkeletonMessage variant="agent" />
+              <EventFeed 
+                events={liveEvents}
+                isStreaming={isLoading || isStreaming}
+                streamingText={streamingText}
+              />
+            </>
           )}
           
           <div ref={messagesEndRef} />
