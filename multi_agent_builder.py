@@ -7,7 +7,7 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-PRODUCT_SEARCH_WEBHOOK_URL = os.environ.get("PRODUCT_SEARCH_WEBHOOK_URL", "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/895eb7ee-2a87-4e65-search-for-products")
+PRODUCT_SEARCH_WEBHOOK_URL = os.environ.get("PRODUCT_SEARCH_WEBHOOK_URL", "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/d93dcc07-d07e-42c8-patty-peck-v3-product-search")
 INBOX_API_BASE_URL = (os.environ.get("INBOX_WEBHOOK_URL") or "https://pphinboxbackend-production.up.railway.app/webhook/message").replace("/webhook/message", "")
 BUSINESS_ID = os.environ.get("BUSINESS_ID", "pph")
 AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")

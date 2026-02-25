@@ -77,7 +77,7 @@ async def seed():
                         "Call this whenever the user asks about products, wants to browse, "
                         "or search for specific items."
                     ),
-                    "url": "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/895eb7ee-2a87-4e65-search-for-products",
+                    "url": "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/d93dcc07-d07e-42c8-patty-peck-v3-product-search",
                     "method": "POST",
                     "body": {
                         "User_message": "{{message}}",
