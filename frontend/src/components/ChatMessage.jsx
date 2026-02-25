@@ -2,10 +2,9 @@
  * ChatMessage - Individual message display component
  * Bubble icon = AI persona avatar for each message from our AI
  */
-import { User, Zap } from 'lucide-react'
 import ProductCarousel from './ProductCarousel'
-
-const BUBBLE_ICON_URL = 'https://res.cloudinary.com/diqbbssim/image/upload/v1771349436/t1ioo2vtk4s9vys4auyh.png'
+import HondaLogo from '../assets/logo-honda.png'
+import UserLogo from '../assets/UserLogo.jpg'
 
 function MessageContent({ text }) {
   if (!text) return null
@@ -58,14 +57,12 @@ export function ChatMessage({ message }) {
   
   return (
     <div className={`chat-message ${isUser ? 'chat-message-user' : ''} ${isSystem ? 'chat-message-system' : ''}`}>
-      {/* Avatar: user icon, G (bubble) icon for AI persona, Zap for system */}
+      {/* Avatar: user logo, Honda brand for system/AI */}
       <div className={`message-avatar ${isUser ? 'avatar-user' : isSystem ? 'avatar-system' : 'avatar-agent'}`}>
         {isUser ? (
-          <User className="w-4 h-4" />
-        ) : isSystem ? (
-          <Zap className="w-4 h-4" />
+          <img src={UserLogo} alt="" aria-hidden />
         ) : (
-          <img src={BUBBLE_ICON_URL} alt="" aria-hidden />
+          <img src={HondaLogo} alt="" aria-hidden />
         )}
       </div>
       

@@ -3,7 +3,7 @@
  * Connects to /run_sse endpoint for live event streaming
  * + Real-time incoming messages from human agents via /api/inbox/listen
  * 
- * 🔐 SESSION PERSISTENCE ARCHITECTURE:
+ * SESSION PERSISTENCE ARCHITECTURE:
  * =====================================
  * 
  * THE PROBLEM:
@@ -32,11 +32,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+// Backend only serves gavigans_agent - do NOT change without backend update
 const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'gavigans_agent'
 
-// 🔐 Storage keys for persistence
-const STORAGE_KEY_USER_ID = 'gavigans_chat_user_id'
-const STORAGE_KEY_SESSION_ID = 'gavigans_chat_session_id'
+// Storage keys for persistence
+const STORAGE_KEY_USER_ID = 'pattypeck_chat_user_id'
+const STORAGE_KEY_SESSION_ID = 'pattypeck_chat_session_id'
 
 /**
  * Generate a random ID (only used when no existing ID found)
@@ -44,7 +45,7 @@ const STORAGE_KEY_SESSION_ID = 'gavigans_chat_session_id'
 const randomId = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 8)}`
 
 /**
- * 🔐 Simple hash function to create consistent userId from email
+ * Simple hash function to create consistent userId from email
  * Same email = same hash = same userId ALWAYS
  */
 function hashEmail(email) {
@@ -58,7 +59,7 @@ function hashEmail(email) {
 }
 
 /**
- * 🔐 Get or create a PERSISTENT userId
+ * Get or create a PERSISTENT userId
  * 
  * Priority:
  * 1. If customer is authenticated (email in URL), use hash of email
@@ -92,14 +93,14 @@ function getPersistentUserId() {
 }
 
 /**
- * 🔐 Get stored sessionId (if any)
+ * Get stored sessionId (if any)
  */
 function getStoredSessionId() {
   return localStorage.getItem(STORAGE_KEY_SESSION_ID)
 }
 
 /**
- * 🔐 Store sessionId for recovery
+ * Store sessionId for recovery
  */
 function storeSessionId(sessionId) {
   if (sessionId) {
@@ -108,16 +109,16 @@ function storeSessionId(sessionId) {
 }
 
 /**
- * 🔐 Clear stored session (for explicit reset only)
+ * Clear stored session (for explicit reset only)
  * NOTE: We keep the userId so the user maintains their identity
  */
 function clearStoredSession() {
   localStorage.removeItem(STORAGE_KEY_SESSION_ID)
-  console.log('🗑️ Cleared stored sessionId (userId preserved)')
+  console.log('Cleared stored sessionId (userId preserved)')
 }
 
 /**
- * 🔐 Extract customer data from URL params (passed by widget)
+ * Extract customer data from URL params (passed by widget)
  * Uses `user:` prefix for cross-session persistence per ADK State docs
  */
 function getInitialStateFromUrl() {
@@ -133,17 +134,17 @@ function getInitialStateFromUrl() {
   if (customerEmail) {
     state['user:customer_email'] = customerEmail
     state['user:is_authenticated'] = true
-    console.log('🔐 Customer email from URL:', customerEmail)
+    console.log('Customer email from URL:', customerEmail)
   }
   
   if (customerId) {
     state['user:magento_customer_id'] = customerId
-    console.log('🔐 Magento customer ID from URL:', customerId)
+    console.log('Magento customer ID from URL:', customerId)
   }
   
   if (loftIds) {
     state['user:loft_customer_ids'] = loftIds.split(',').filter(Boolean)
-    console.log('🔐 Loft customer IDs from URL:', loftIds)
+    console.log('Loft customer IDs from URL:', loftIds)
   }
   
   if (widgetSessionId) {
@@ -170,7 +171,7 @@ function getInitialStateFromUrl() {
 }
 
 /**
- * 🔐 Parse ADK session events into chat messages
+ * Parse ADK session events into chat messages
  * Used when recovering an existing session to show chat history
  */
 function parseEventsToMessages(events) {
@@ -208,7 +209,7 @@ function parseEventsToMessages(events) {
 // Welcome message shown when starting fresh
 const WELCOME_MESSAGE = {
   role: 'system',
-  text: `Welcome to Gavigans! 🤖\n\nI'm your AI assistant powered by AiPRL Assist.\nHow can I help you today?`
+  text: `Welcome to Patty Peck Honda!\n\nI'm your AI assistant. How can I help you with vehicles, service, or financing today?`
 }
 
 // Event types for categorization
@@ -301,6 +302,7 @@ export function useSSEChat() {
   const [isRecovered, setIsRecovered] = useState(false) // Track if we recovered a session
   const [hasPendingRecovery, setHasPendingRecovery] = useState(false) // Show recovery prompt
   const [pendingSessionData, setPendingSessionData] = useState(null) // Store session data for recovery
+  const [isInitializing, setIsInitializing] = useState(true) // Skeleton while checking session
   
   // Persistent userId - same across page loads and sessions.
   // Lazy init to avoid calling getPersistentUserId() on every render.
@@ -321,7 +323,7 @@ export function useSSEChat() {
   const inboxSSERef = useRef(null)  // SSE for receiving human agent messages
   const listenEventSourceRef = useRef(null)
 
-  // 🔥 NEW: Listen for incoming messages from human agents
+  // Listen for incoming messages from human agents
   const startListening = useCallback((sessionId, userId) => {
     if (listenEventSourceRef.current) {
       listenEventSourceRef.current.close()
@@ -330,14 +332,14 @@ export function useSSEChat() {
     // SSE endpoint is on the backend server - use current origin in production
     const backendUrl = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin
     const listenUrl = `${backendUrl}/api/inbox/listen/${sessionId}?user_id=${userId}`
-    console.log('🎧 Connecting SSE for incoming messages:', listenUrl)
+    console.log('Connecting SSE for incoming messages:', listenUrl)
     
     const eventSource = new EventSource(listenUrl)
     
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        console.log('📥 SSE received:', data)
+        console.log('SSE received:', data)
         
         if (data.type === 'new_message') {
           // Add human agent message to chat
@@ -347,13 +349,13 @@ export function useSSEChat() {
             author: data.author,
             timestamp: data.timestamp
           }])
-          console.log('✅ Human agent message added:', data.content)
+          console.log('Human agent message added:', data.content)
         }
         
-        // 🆕 Handle AI status change from Inbox
+        // Handle AI status change from Inbox
         if (data.type === 'ai_status_changed') {
           setAiPaused(data.ai_paused)
-          console.log(`🤖 AI status changed: ${data.ai_paused ? 'PAUSED (human mode)' : 'ACTIVE'}`)
+          console.log(`AI status changed: ${data.ai_paused ? 'PAUSED (human mode)' : 'ACTIVE'}`)
           
           // Show status message to user
           if (data.message) {
@@ -370,7 +372,7 @@ export function useSSEChat() {
     }
     
     eventSource.onerror = (error) => {
-      console.warn('⚠️ SSE connection lost, reconnecting in 3s...', error)
+      console.warn('SSE connection lost, reconnecting in 3s...', error)
       eventSource.close()
       setTimeout(() => startListening(sessionId, userId), 3000)
     }
@@ -379,44 +381,44 @@ export function useSSEChat() {
   }, [])
 
   /**
-   * 🔐 Check if there's an existing session with history (but don't auto-load it!)
+   * Check if there's an existing session with history (but don't auto-load it!)
    * User must explicitly choose to continue or start fresh
    */
   const checkForRecoverableSession = useCallback(async (sessionId, userId) => {
     try {
-      console.log(`🔍 Checking for recoverable session: ${sessionId}`)
+      console.log(`Checking for recoverable session: ${sessionId}`)
       
       const getUrl = `${API_BASE}/apps/${APP_NAME}/users/${userId}/sessions/${sessionId}`
       const response = await fetch(getUrl)
       
       if (!response.ok) {
-        console.log(`📭 Session ${sessionId} not found or expired (${response.status})`)
+        console.log(`Session ${sessionId} not found or expired (${response.status})`)
         return null
       }
       
       const session = await response.json()
       
       if (!session || !session.events || session.events.length === 0) {
-        console.log(`📭 Session ${sessionId} exists but has no history`)
+        console.log(`Session ${sessionId} exists but has no history`)
         return null
       }
       
       const recoveredMessages = parseEventsToMessages(session.events)
       
       if (recoveredMessages.length > 0) {
-        console.log(`📜 Found ${recoveredMessages.length} messages in session - prompting user`)
+        console.log(`Found ${recoveredMessages.length} messages in session - prompting user`)
         return { session, recoveredMessages }
       }
       
       return null
     } catch (error) {
-      console.log(`❌ Failed to check session: ${error.message}`)
+      console.log(`Failed to check session: ${error.message}`)
       return null
     }
   }, [])
 
   /**
-   * 🔐 Actually recover the session (user chose to continue)
+   * Actually recover the session (user chose to continue)
    */
   const confirmRecovery = useCallback(() => {
     if (pendingSessionData) {
@@ -425,7 +427,7 @@ export function useSSEChat() {
       setIsRecovered(true)
       sessionCreatedRef.current = true
       startListening(sessionIdRef.current, userIdRef.current)
-      console.log(`✅ User confirmed session recovery: ${sessionIdRef.current}`)
+      console.log(`User confirmed session recovery: ${sessionIdRef.current}`)
     }
     setHasPendingRecovery(false)
     setPendingSessionData(null)
@@ -433,10 +435,10 @@ export function useSSEChat() {
   }, [pendingSessionData, startListening])
 
   /**
-   * 🔐 Decline recovery and start fresh (user chose new conversation)
+   * Decline recovery and start fresh (user chose new conversation)
    */
   const declineRecovery = useCallback(() => {
-    console.log('🆕 User declined recovery - starting fresh')
+    console.log('User declined recovery - starting fresh')
     sessionIdRef.current = null
     clearStoredSession()
     setHasPendingRecovery(false)
@@ -450,22 +452,22 @@ export function useSSEChat() {
       return sessionIdRef.current
     }
 
-    // 🔐 If there's a pending recovery prompt, don't create new session yet
+    // If there's a pending recovery prompt, don't create new session yet
     if (hasPendingRecovery) {
-      console.log('⏳ Waiting for user to choose: continue or start fresh')
+      console.log('Waiting for user to choose: continue or start fresh')
       return null
     }
     
     sessionRecoveryAttempted.current = true
 
-    // 🔐 Create new session with initial state (no auto-recovery!)
+    // Create new session with initial state (no auto-recovery!)
     const initialState = getInitialStateFromUrl()
     const isAuthenticated = Boolean(initialState['user:customer_email'])
     
     if (isAuthenticated) {
-      console.log('🔐 Creating authenticated session with state:', initialState)
+      console.log('Creating authenticated session with state:', initialState)
     } else {
-      console.log('🆕 Creating anonymous session')
+      console.log('Creating anonymous session')
     }
 
     const createUrl = `${API_BASE}/apps/${APP_NAME}/users/${userIdRef.current}/sessions`
@@ -483,7 +485,7 @@ export function useSSEChat() {
     sessionIdRef.current = session.id
     sessionCreatedRef.current = true
     
-    // 🔐 IMPORTANT: Store sessionId for future recovery!
+    // IMPORTANT: Store sessionId for future recovery!
     storeSessionId(session.id)
     
     // Start listening for incoming messages (human agent, AI toggle)
@@ -491,9 +493,9 @@ export function useSSEChat() {
     
     // Log status
     if (isAuthenticated) {
-      console.log(`✅ New authenticated session: ${session.id} (customer: ${initialState['user:customer_email']})`)
+      console.log(`New authenticated session: ${session.id} (customer: ${initialState['user:customer_email']})`)
     } else {
-      console.log(`✅ New anonymous session: ${session.id}`)
+      console.log(`New anonymous session: ${session.id}`)
     }
     
     return session.id
@@ -502,19 +504,19 @@ export function useSSEChat() {
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || (status !== 'idle' && status !== 'human_mode')) return
     
-    // 🔐 Don't allow sending if there's a pending recovery prompt
+    // Don't allow sending if there's a pending recovery prompt
     if (hasPendingRecovery) {
-      console.log('⏳ Please choose to continue or start fresh first')
+      console.log('Please choose to continue or start fresh first')
       return
     }
 
     // Add user message immediately
     setMessages(prev => [...prev, { role: 'user', text: text.trim() }])
     
-    // 🆕 If AI is paused, don't show "thinking" - message goes to human agent
+    // If AI is paused, don't show "thinking" - message goes to human agent
     if (aiPaused) {
       setStatus('human_mode')
-      console.log('📤 Message sent to human agent (AI paused)')
+      console.log('Message sent to human agent (AI paused)')
       // Still need to send to backend so it gets stored and forwarded to Inbox
     } else {
       setStatus('loading')
@@ -599,20 +601,20 @@ export function useSSEChat() {
         ? textEvents[textEvents.length - 1].text 
         : accumulatedText || ''
       
-      // 🆕 Check for AI paused marker - don't show any message, human will respond via SSE
+      // Check for AI paused marker - don't show any message, human will respond via SSE
       if (finalText === '__AI_PAUSED__') {
-        console.log('🚫 AI is paused - human agent will respond')
+        console.log('AI is paused - human agent will respond')
         setAiPaused(true) // Remember AI is paused for future messages
         setStatus('human_mode') // Set status to human mode
         // Don't add any message - human agent response will come via SSE listener
         return
       }
       
-      // 🐛 FIX: Empty response is NOT the same as AI paused!
+      // FIX: Empty response is NOT the same as AI paused!
       // An empty response might indicate a routing/transfer issue, not human takeover.
       // Show a generic message instead of silently failing.
       if (!finalText.trim()) {
-        console.warn('⚠️ Empty response from agent - may be a routing issue')
+        console.warn('Empty response from agent - may be a routing issue')
         setMessages(prev => [...prev, {
           role: 'agent',
           text: 'I apologize, I encountered an issue processing your request. Please try again or rephrase your question.'
@@ -637,11 +639,11 @@ export function useSSEChat() {
       if (error.name !== 'AbortError') {
         setMessages(prev => [...prev, {
           role: 'agent',
-          text: `❌ Error: ${error.message}. Please check if the server is running.`
+          text: `Error: ${error.message}. Please check if the server is running.`
         }])
       }
     } finally {
-      // 🆕 Keep human_mode if AI is paused, otherwise go to idle
+      // Keep human_mode if AI is paused, otherwise go to idle
       if (!aiPaused) {
         setStatus('idle')
       } else {
@@ -671,7 +673,7 @@ export function useSSEChat() {
     setAiPaused(false)
     setIsRecovered(false)
     
-    // 🔐 IMPORTANT: Keep the userId! Only clear the session.
+    // IMPORTANT: Keep the userId! Only clear the session.
     // This ensures the user maintains their identity across conversations.
     // userIdRef.current stays the same!
     
@@ -681,7 +683,7 @@ export function useSSEChat() {
     sessionRecoveryAttempted.current = false
     clearStoredSession()
     
-    console.log('🔄 Chat reset - userId preserved:', userIdRef.current)
+    console.log('Chat reset - userId preserved:', userIdRef.current)
   }, [])
 
   const cancelStream = useCallback(() => {
@@ -690,32 +692,33 @@ export function useSSEChat() {
     }
   }, [])
 
-  // 🔐 Check for recoverable session on mount and PROMPT user (don't auto-load!)
+  // Check for recoverable session on mount and PROMPT user (don't auto-load!)
   useEffect(() => {
     const storedSessionId = getStoredSessionId()
     if (storedSessionId && !sessionRecoveryAttempted.current) {
       sessionRecoveryAttempted.current = true
-      console.log('🔍 Found stored session on mount, checking if recoverable...')
+      console.log('Found stored session on mount, checking if recoverable...')
       
       checkForRecoverableSession(storedSessionId, userIdRef.current)
         .then(result => {
           if (result) {
-            // Found recoverable session - show prompt to user
             setPendingSessionData(result)
             setHasPendingRecovery(true)
-            console.log('💬 Prompting user to continue or start fresh')
+            console.log('Prompting user to continue or start fresh')
           } else {
-            // No recoverable session - clear stored reference
             sessionIdRef.current = null
             clearStoredSession()
-            console.log('🆕 No recoverable session - ready for new conversation')
+            console.log('No recoverable session - ready for new conversation')
           }
         })
         .catch(err => {
-          console.error('❌ Session check failed:', err.message)
+          console.error('Session check failed:', err.message)
           sessionIdRef.current = null
           clearStoredSession()
         })
+        .finally(() => setIsInitializing(false))
+    } else {
+      setIsInitializing(false)
     }
   }, [checkForRecoverableSession])
 
@@ -736,12 +739,12 @@ export function useSSEChat() {
     sendMessage,
     reset,
     cancelStream,
-    // 🔐 Session info for debugging and Inbox integration
+    isInitializing,     // Show skeleton while checking session
     aiPaused,           // Is AI paused (human takeover)?
     isRecovered,        // Did we recover an existing session?
     userId: userIdRef.current,      // Current userId (for debugging)
     sessionId: sessionIdRef.current,  // Current sessionId (for debugging)
-    // 🆕 Session recovery prompt
+    // Session recovery prompt
     hasPendingRecovery, // Show "continue conversation?" prompt
     pendingMessageCount: pendingSessionData?.recoveredMessages?.length || 0,
     confirmRecovery,    // User chose to continue
