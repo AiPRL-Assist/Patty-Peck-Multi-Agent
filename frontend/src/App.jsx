@@ -103,16 +103,13 @@ function App() {
             </div>
           )}
           
-          {/* Skeleton + Event Feed - Shows during AI response (NOT in human mode) */}
+          {/* Event Feed - Shows during AI response (NOT in human mode) */}
           {!isInitializing && (isLoading || isStreaming) && !isHumanMode && (
-            <>
-              <SkeletonMessage variant="agent" />
-              <EventFeed 
-                events={liveEvents}
-                isStreaming={isLoading || isStreaming}
-                streamingText={streamingText}
-              />
-            </>
+            <EventFeed
+              events={liveEvents}
+              isStreaming={isLoading || isStreaming}
+              streamingText={streamingText}
+            />
           )}
           
           <div ref={messagesEndRef} />

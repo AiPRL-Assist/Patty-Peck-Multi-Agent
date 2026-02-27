@@ -30,9 +30,17 @@ export function ChatInput({ value, onChange, onSend, onCancel, status }) {
   const [charIndex, setCharIndex] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Focus on mount
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  // Re-focus when not busy (after loading completes)
+  useEffect(() => {
+    if (!isBusy) {
+      inputRef.current?.focus()
+    }
+  }, [isBusy])
 
   useEffect(() => {
     const phrase = PLACEHOLDER_PHRASES[phraseIndex]

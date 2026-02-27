@@ -213,6 +213,34 @@ body::before {
   100% { background-position: 200% 0; }
 }
 
+@keyframes tireSpinGlow {
+  0% {
+    transform: rotate(0deg);
+    box-shadow: 0 0 10px rgba(0, 102, 179, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 102, 179, 0.6);
+  }
+  100% {
+    transform: rotate(360deg);
+    box-shadow: 0 0 10px rgba(0, 102, 179, 0.3);
+  }
+}
+
+@keyframes carDrive {
+  0% {
+    transform: translateX(-10px);
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(10px);
+    opacity: 0.6;
+  }
+}
+
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
 }
@@ -669,22 +697,69 @@ body::before {
 }
 
 .thinking-dots {
-  display: flex;
-  gap: 5px;
-  align-items: center;
+  display: none; /* Hidden - replaced with text message */
 }
 
 .thinking-dot {
-  width: 8px;
-  height: 8px;
-  background: #8e8e93;
-  border-radius: 50%;
-  animation: dotPulse 1.4s ease-in-out infinite;
+  display: none; /* Hidden - replaced with text message */
 }
 
-.thinking-dot:nth-child(1) { animation-delay: 0s; }
-.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+.thinking-message-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.thinking-tire {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #2c2c2c 0%, #1a1a1a 50%, #000 100%),
+    conic-gradient(from 0deg,
+      #1a1a1a 0deg, #2c2c2c 30deg,
+      #1a1a1a 60deg, #2c2c2c 90deg,
+      #1a1a1a 120deg, #2c2c2c 150deg,
+      #1a1a1a 180deg, #2c2c2c 210deg,
+      #1a1a1a 240deg, #2c2c2c 270deg,
+      #1a1a1a 300deg, #2c2c2c 330deg,
+      #1a1a1a 360deg
+    );
+  border: 3px solid #000;
+  box-shadow:
+    inset 0 0 8px rgba(0,0,0,0.8),
+    0 0 10px rgba(0, 102, 179, 0.3);
+  position: relative;
+  animation: tireSpinGlow 1.2s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Hub cap center */
+.thinking-tire::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle, #444 0%, #222 100%);
+  border: 1px solid #000;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.1);
+}
+
+/* Remove the extra center dot */
+.thinking-tire::after {
+  display: none;
+}
+
+.thinking-message-text {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-style: italic;
+  opacity: 0.9;
+}
 
 /* ============================================
    SKELETON LOADING
@@ -702,13 +777,42 @@ body::before {
   height: 100%;
   border-radius: 50%;
   background: linear-gradient(
-    90deg,
+    45deg,
     var(--bg-tertiary) 0%,
-    var(--layer-2) 50%,
+    var(--layer-2) 25%,
+    var(--bg-tertiary) 50%,
+    var(--layer-2) 75%,
     var(--bg-tertiary) 100%
   );
-  background-size: 200% 100%;
-  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  border: 3px solid var(--layer-2);
+  position: relative;
+  animation: tireSpinGlow 1.2s linear infinite;
+}
+
+/* Add tire tread pattern */
+.skeleton-avatar::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--layer-2);
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.skeleton-avatar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--layer-2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .skeleton-bubble {
@@ -732,30 +836,32 @@ body::before {
 }
 
 .skeleton-line {
-  height: 12px;
-  border-radius: 6px;
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 0%,
-    var(--layer-2) 50%,
-    var(--bg-tertiary) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeletonShimmer 1.5s ease-in-out infinite;
+  display: none; /* Hidden - replaced with text content */
+}
+
+.skeleton-lines {
+  display: none; /* Hidden - replaced with text content */
+}
+
+.skeleton-text-content {
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding: 4px 0;
+  font-style: italic;
+  opacity: 0.8;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .skeleton-line-long {
-  width: 85%;
+  display: none;
 }
 
 .skeleton-line-medium {
-  width: 60%;
-  animation-delay: 0.1s;
+  display: none;
 }
 
 .skeleton-line-short {
-  width: 40%;
-  animation-delay: 0.2s;
+  display: none;
 }
 
 /* Streaming Preview - Sunken (dark inset top, light inset bottom) */

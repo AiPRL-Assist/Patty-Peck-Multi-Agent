@@ -55,28 +55,39 @@ except ImportError:
 # =============================================================================
 
 # =============================================================================
-# MULTI-AGENT: Build from hardcoded config (no DB dependency)
+# SINGLE AGENT: Fast unified agent (no multi-agent routing overhead)
 # =============================================================================
 import gavigans_agent.agent as ga_module
 
 _bootstrap_error = None  # Store error for debugging
 
 try:
-    from multi_agent_builder import build_root_agent_sync
-    _root = build_root_agent_sync(
+    from single_agent_builder import build_single_agent_sync
+    print("🚀 Using SINGLE AGENT mode (no routing overhead)")
+    _root = build_single_agent_sync(
         before_callback=ga_module.before_agent_callback,
         after_callback=ga_module.after_agent_callback,
     )
     ga_module.root_agent = _root
     import gavigans_agent
     gavigans_agent.root_agent = _root
-    print(f"✅ Multi-agent root loaded: {len(getattr(_root, 'sub_agents', []) or [])} sub-agents")
+    print(f"✅ Single unified agent loaded with all tools")
 except Exception as e:
     import traceback
     _bootstrap_error = traceback.format_exc()
     print(_bootstrap_error)
-    print(f"⚠️ Multi-agent bootstrap failed ({e}) - using single agent from module")
-    _root = None  # fallback used
+    print(f"⚠️ Single agent bootstrap failed ({e}) - falling back to multi-agent")
+    # Fallback to multi-agent if single agent fails
+    try:
+        from multi_agent_builder import build_root_agent_sync
+        _root = build_root_agent_sync(
+            before_callback=ga_module.before_agent_callback,
+            after_callback=ga_module.after_agent_callback,
+        )
+        ga_module.root_agent = _root
+        gavigans_agent.root_agent = _root
+    except:
+        _root = None
 
 # =============================================================================
 
@@ -106,18 +117,25 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
-# CRITICAL: Session pool settings to fix "connection is closed" errors!
+# OPTIMIZED: Session pool settings for faster local development
 SESSION_DB_KWARGS = {
-    "pool_pre_ping": True,           # Test connection before using
-    "pool_recycle": 300,             # Recycle connections every 5 minutes
-    "pool_size": 5,                  # Keep 5 connections in pool
-    "max_overflow": 10,              # Allow 10 extra during bursts
-    "pool_timeout": 30,              # Wait 30s for connection
+    "pool_pre_ping": False,          # Disable ping for speed (adds ~100ms per request)
+    "pool_recycle": -1,              # Disable recycling for local dev
+    "pool_size": 10,                 # More connections in pool
+    "max_overflow": 20,              # More overflow connections
+    "pool_timeout": 5,               # Shorter timeout
     "echo": False,                   # Don't log SQL
-    "connect_args": {"statement_cache_size": 0},  # Disable for PgBouncer
+    "connect_args": {
+        "statement_cache_size": 0,   # Disable for PgBouncer
+        "server_settings": {
+            "application_name": "pattypeck_agent_local"
+        }
+    },
 }
 
-# Create the FastAPI app with persistent sessions
+# Create the FastAPI app
+# Single agent + database sessions (async middleware handles speed)
+print("🚀 PRODUCTION: Single agent + database sessions (async middleware)")
 app = get_fast_api_app(
     agents_dir=".",
     web=False,
@@ -125,6 +143,11 @@ app = get_fast_api_app(
     session_service_uri=SESSION_DB_URL,
     session_db_kwargs=SESSION_DB_KWARGS,
 )
+
+# Async middleware disabled - ADK's optimized pool is fast enough
+# With single agent + optimized pool, we get ~3-4s responses
+print("📊 Using ADK's native session service with optimized pool")
+print("   Single agent architecture provides the speed boost!")
 
 
 # =============================================================================

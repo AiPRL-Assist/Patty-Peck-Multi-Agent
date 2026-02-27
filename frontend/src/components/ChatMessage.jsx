@@ -54,7 +54,8 @@ function MessageContent({ text }) {
 export function ChatMessage({ message }) {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
-  
+  const hasProducts = message.products && message.products.length > 0
+
   return (
     <div className={`chat-message ${isUser ? 'chat-message-user' : ''} ${isSystem ? 'chat-message-system' : ''}`}>
       {/* Avatar: user logo, Honda brand for system/AI */}
@@ -65,18 +66,19 @@ export function ChatMessage({ message }) {
           <img src={HondaLogo} alt="" aria-hidden />
         )}
       </div>
-      
+
       {/* Message Content */}
       <div className="message-body">
         <div className={`message-bubble ${isUser ? 'bubble-user' : isSystem ? 'bubble-system' : 'bubble-agent'}`}>
-          <MessageContent text={message.text} />
-          
-          {/* Products */}
-          {message.products && message.products.length > 0 && (
+          {/* Only show text if there are no products */}
+          {!hasProducts && <MessageContent text={message.text} />}
+
+          {/* Products carousel - replaces text */}
+          {hasProducts && (
             <ProductCarousel products={message.products} />
           )}
         </div>
-        
+
       </div>
     </div>
   )
