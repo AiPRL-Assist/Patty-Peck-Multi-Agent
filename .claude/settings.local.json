@@ -17,8 +17,7 @@
       "Bash(curl:*)",
       "Bash(taskkill:*)",
       "Bash(cmd.exe //c \".venv\\\\Scripts\\\\activate.bat && python test_tool.py\")",
-      "Bash(cmd.exe //c \"taskkill /F /IM python.exe 2>NUL\")",
-      "Bash(/home/jagaku/Developer/AiPRL/pph/Patty-Peck-Multi-Agent/.venv/bin/python -c \":*)"
+      "Bash(cmd.exe //c \"taskkill /F /IM python.exe 2>NUL\")"
     ]
   }
 }
