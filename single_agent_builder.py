@@ -9,10 +9,14 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 import httpx
+
+# Patty Peck Honda operates in Central Time
+CST_TZ = ZoneInfo("America/Chicago")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -151,43 +155,100 @@ def connect_to_support(name: str, email: str, phone: str, location: str, issue: 
         return {"status": "error", "error": str(e)}
 
 
-def create_ticket(title: str, description: str, priority: str = "medium", tags: str = "") -> dict:
-    """Create a support ticket"""
+def create_ticket(title: str, description: str = "", customerName: str = "", customerPhone: str = "", priority: str = "medium", source: str = "ai-agent", conversationId: str = "") -> dict:
+    """Create a support ticket for a customer issue. Returns a confirmation message."""
     try:
         response = httpx.post(
-            f"{INBOX_API_BASE_URL}/api/tickets/create",
+            f"{INBOX_API_BASE_URL}/api/tickets",
             json={
-                "business_id": BUSINESS_ID,
                 "title": title,
                 "description": description,
+                "customerName": customerName,
+                "customerPhone": customerPhone,
+                "columnId": "new",
                 "priority": priority,
-                "tags": tags.split(",") if tags else [],
-                "created_by": AI_USER_EMAIL
+                "source": source,
+                "conversationId": conversationId,
             },
-            timeout=5.0
+            headers={
+                "x-business-id": BUSINESS_ID,
+                "Content-Type": "application/json",
+            },
+            timeout=10.0
         )
-        return response.json() if response.status_code == 200 else {"error": "Ticket creation failed"}
+        if response.status_code in (200, 201):
+            data = response.json()
+            ticket = data.get("ticket", data)
+            ticket_id = ticket.get("id", ticket.get("_id", "unknown"))
+            return {"result": f"Ticket created successfully. ID: {ticket_id}. Title: {title}. The team will follow up soon."}
+        return {"error": f"Ticket creation failed (status {response.status_code}). Please try again."}
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Ticket creation error: {e}")
+        return {"error": "Ticket creation failed due to a temporary error. Please try again."}
 
 
 def create_appointment(name: str, email: str, phone: str, date: str, time: str, reason: str) -> dict:
-    """Create an appointment for customer"""
-    ticket_description = f"""
-Appointment Request:
-Name: {name}
-Email: {email}
-Phone: {phone}
-Date: {date}
-Time: {time}
-Reason: {reason}
-"""
-    return create_ticket(
-        title=f"Appointment: {name} - {date} {time}",
-        description=ticket_description,
-        priority="high",
-        tags="appointment"
-    )
+    """Create an appointment for a customer to visit the dealership.
+
+    Args:
+        name: Full name of the customer.
+        email: Email address of the customer.
+        phone: Phone number of the customer.
+        date: Date of the appointment, e.g. '2026-03-15' or 'March 15, 2026'.
+        time: Time of the appointment, e.g. '10:00 AM' or '14:00'.
+        reason: Reason for the visit, e.g. 'Test drive CR-V' or 'General visit'.
+    """
+    from dateutil import parser as dateparser
+
+    # --- Validate the requested date is not in the past ---
+    now_cst = datetime.now(CST_TZ)
+    try:
+        parsed_dt = dateparser.parse(f"{date} {time}")
+        if parsed_dt is None:
+            return {"error": f"Could not understand the date/time '{date} {time}'. Please use a format like 'March 15, 2026 at 10:00 AM'."}
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=CST_TZ)
+        if parsed_dt < now_cst:
+            return {"error": f"The requested date and time ({date} {time}) is in the past. The current date and time is {now_cst.strftime('%A, %B %d, %Y at %I:%M %p CST')}. Please choose a future date."}
+        iso_date = parsed_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        iso_date = f"{date}T{time}"
+
+    # --- Call the calendar appointments API ---
+    try:
+        resp = httpx.post(
+            f"{INBOX_API_BASE_URL}/api/calendar/appointments",
+            json={
+                "title": f"Dealership Visit: {name}",
+                "date": iso_date,
+                "duration": 30,
+                "customerName": name,
+                "customerEmail": email,
+                "customerPhone": phone,
+                "type": "in-store",
+                "notes": reason,
+                "syncToGoogle": True,
+            },
+            headers={
+                "x-business-id": BUSINESS_ID,
+                "x-user-email": AI_USER_EMAIL,
+                "Content-Type": "application/json",
+            },
+            timeout=30.0
+        )
+        if resp.status_code in (200, 201):
+            appt_data = resp.json()
+            appt_obj = appt_data.get("appointment", appt_data)
+            appt_id = appt_obj.get("id", appt_obj.get("_id", "unknown"))
+            return {
+                "result": f"Appointment booked successfully! ID: {appt_id}. "
+                          f"{name} is scheduled for {date} at {time}. "
+                          f"A confirmation will be sent to {email}."
+            }
+        return {"error": f"Appointment booking failed (status {resp.status_code}). Please try again or ask to speak with the support team."}
+    except Exception as e:
+        logger.error(f"Appointment creation error: {e}")
+        return {"error": "Appointment booking failed due to a temporary error. Please try again or ask to speak with the support team."}
 
 
 # =============================================================================
@@ -440,8 +501,19 @@ IMPORTANT RULES:
 - Always decline providing price estimates.
 - You must NEVER run the wrong function as a substitute - always trigger the right tool. If you can't find that tool, say you are having technical issues and offer to connect with support.
 
-CURRENT DATE: {current_date}
+CURRENT DATE AND TIME: {current_date}
+You MUST use this date and time as your reference for all date-related reasoning. Do NOT guess or assume a different date.
 """
+
+
+def _get_instruction(_) -> str:
+    """Return the instruction with the current date/time injected dynamically.
+
+    Called by ADK on every request so the agent always knows the real date.
+    """
+    now_cst = datetime.now(CST_TZ)
+    date_str = now_cst.strftime("%A, %B %d, %Y at %I:%M %p CST")
+    return UNIFIED_INSTRUCTION.format(current_date=date_str)
 
 
 def build_single_agent(before_callback=None, after_callback=None) -> Agent:
@@ -449,8 +521,6 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
     Build single unified agent with all tools.
     No multi-agent routing = ~5.8s faster!
     """
-    date_str = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p %Z")
-
     # Create all tools
     tools = [
         FunctionTool(show_directions),
@@ -467,7 +537,7 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
         name="gavigans_agent",
         model="gemini-2.0-flash",  # Use same model as multi-agent (was gemini-2.5-flash)
         description="Patty Peck Honda unified AI assistant - handles all inquiries",
-        instruction=UNIFIED_INSTRUCTION.format(current_date=date_str),
+        instruction=_get_instruction,
         tools=tools,
         before_agent_callback=before_callback,
         after_agent_callback=after_callback,
