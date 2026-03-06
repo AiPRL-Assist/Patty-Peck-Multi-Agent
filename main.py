@@ -117,18 +117,18 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
-# OPTIMIZED: Session pool settings for faster local development
+# Session pool settings for Neon serverless Postgres
 SESSION_DB_KWARGS = {
-    "pool_pre_ping": False,          # Disable ping for speed (adds ~100ms per request)
-    "pool_recycle": -1,              # Disable recycling for local dev
-    "pool_size": 10,                 # More connections in pool
-    "max_overflow": 20,              # More overflow connections
-    "pool_timeout": 5,               # Shorter timeout
+    "pool_pre_ping": True,           # Detect dead connections (Neon closes idle ones)
+    "pool_recycle": 300,             # Recycle connections every 5min (matches Neon idle timeout)
+    "pool_size": 10,                 # Connections in pool
+    "max_overflow": 20,              # Overflow connections
+    "pool_timeout": 5,               # Connection wait timeout
     "echo": False,                   # Don't log SQL
     "connect_args": {
-        "statement_cache_size": 0,   # Disable for PgBouncer
+        "statement_cache_size": 0,   # Disable for PgBouncer/Neon pooler
         "server_settings": {
-            "application_name": "pattypeck_agent_local"
+            "application_name": "pattypeck_agent"
         }
     },
 }
