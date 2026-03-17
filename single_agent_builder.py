@@ -198,11 +198,10 @@ def create_appointment(name: str, email: str, phone: str, date: str, time: str, 
         time: Time of the appointment, e.g. '10:00 AM' or '14:00'.
         reason: Reason for the visit, e.g. 'Test drive CR-V' or 'General visit'.
     """
-    from dateutil import parser as dateparser
-
     # --- Validate the requested date is not in the past ---
     now_cst = datetime.now(CST_TZ)
     try:
+        from dateutil import parser as dateparser
         parsed_dt = dateparser.parse(f"{date} {time}")
         if parsed_dt is None:
             return {"error": f"Could not understand the date/time '{date} {time}'. Please use a format like 'March 15, 2026 at 10:00 AM'."}
