@@ -220,22 +220,66 @@ def create_ticket(title: str, description: str, priority: str = "medium", tags: 
 
 
 def create_appointment(name: str, email: str, phone: str, date: str, time: str, reason: str) -> dict:
-    """Create an appointment for customer"""
-    ticket_description = f"""
-Appointment Request:
-Name: {name}
-Email: {email}
-Phone: {phone}
-Date: {date}
-Time: {time}
-Reason: {reason}
-"""
-    return create_ticket(
-        title=f"Appointment: {name} - {date} {time}",
-        description=ticket_description,
-        priority="high",
-        tags="appointment"
-    )
+    """Create an appointment for a customer to visit the dealership.
+
+    Args:
+        name: Full name of the customer.
+        email: Email address of the customer.
+        phone: Phone number of the customer.
+        date: Date of the appointment, e.g. '2026-03-15' or 'March 15, 2026'.
+        time: Time of the appointment, e.g. '10:00 AM' or '14:00'.
+        reason: Reason for the visit, e.g. 'Test drive CR-V' or 'General visit'.
+    """
+    # --- Validate the requested date is not in the past ---
+    now_cst = datetime.now(CST_TZ)
+    try:
+        from dateutil import parser as dateparser
+        parsed_dt = dateparser.parse(f"{date} {time}")
+        if parsed_dt is None:
+            return {"error": f"Could not understand the date/time '{date} {time}'. Please use a format like 'March 15, 2026 at 10:00 AM'."}
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=CST_TZ)
+        if parsed_dt < now_cst:
+            return {"error": f"The requested date and time ({date} {time}) is in the past. The current date and time is {now_cst.strftime('%A, %B %d, %Y at %I:%M %p CST')}. Please choose a future date."}
+        iso_date = parsed_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    except Exception:
+        iso_date = f"{date}T{time}"
+
+    # --- Call the calendar appointments API ---
+    try:
+        resp = httpx.post(
+            f"{INBOX_API_BASE_URL}/api/calendar/appointments",
+            json={
+                "title": f"Dealership Visit: {name}",
+                "date": iso_date,
+                "duration": 30,
+                "customerName": name,
+                "customerEmail": email,
+                "customerPhone": phone,
+                "type": "in-store",
+                "notes": reason,
+                "syncToGoogle": True,
+            },
+            headers={
+                "x-business-id": BUSINESS_ID,
+                "x-user-email": AI_USER_EMAIL,
+                "Content-Type": "application/json",
+            },
+            timeout=30.0
+        )
+        if resp.status_code in (200, 201):
+            appt_data = resp.json()
+            appt_obj = appt_data.get("appointment", appt_data)
+            appt_id = appt_obj.get("id", appt_obj.get("_id", "unknown"))
+            return {
+                "result": f"Appointment booked successfully! ID: {appt_id}. "
+                          f"{name} is scheduled for {date} at {time}. "
+                          f"A confirmation will be sent to {email}."
+            }
+        return {"error": f"Appointment booking failed (status {resp.status_code}). Please try again or ask to speak with the support team."}
+    except Exception as e:
+        logger.error(f"Appointment creation error: {e}")
+        return {"error": "Appointment booking failed due to a temporary error. Please try again or ask to speak with the support team."}
 
 
 # =============================================================================
