@@ -8,14 +8,14 @@ import { ArrowRight, Loader2, StopCircle } from 'lucide-react'
 const SUGGESTIONS = [
   'What are your hours?',
   'Tell me about financing',
-  'Schedule service',
+  'Book an appointment',
   'Help me find a Honda'
 ]
 
 const PLACEHOLDER_PHRASES = [
   'Ask about vehicles',
   'Tell me about financing',
-  'Schedule service',
+  'Book an appointment',
   'Help me find a Honda'
 ]
 
