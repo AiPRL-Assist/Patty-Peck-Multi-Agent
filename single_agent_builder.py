@@ -37,8 +37,32 @@ def show_directions() -> dict:
     }
 
 
-def search_products(query: str) -> dict:
-    """Search for vehicles based on user query. Returns carousel-formatted results with images, names, and prices."""
+def search_products(query: str, max_price: float = 0) -> dict:
+    """Search for vehicles based on user query. Returns carousel-formatted results with images, names, and prices.
+
+    Args:
+        query: Search terms describing the vehicle (e.g. "used SUV", "2024 Accord", "red truck").
+        max_price: Maximum price budget in dollars. If the user mentions a budget or price limit, pass it here (e.g. 15000 for "under $15,000"). Use 0 if no budget specified.
+    """
+    import re as _re
+
+    # Use explicit max_price param if provided, otherwise try to extract from query text
+    if max_price and max_price > 0:
+        effective_max_price = float(max_price)
+    else:
+        effective_max_price = None
+        price_pattern = _re.search(
+            r'(?:under|below|less\s+than|budget\s+(?:of\s+)?|max(?:imum)?\s+|up\s+to)\s*\$?([\d,]+(?:\.\d+)?)[kK]?',
+            query, _re.IGNORECASE
+        )
+        if not price_pattern:
+            price_pattern = _re.search(r'\$([\d,]+(?:\.\d+)?)[kK]?\s*(?:or\s+(?:less|under|below))', query, _re.IGNORECASE)
+        if price_pattern:
+            price_str = price_pattern.group(1).replace(',', '')
+            effective_max_price = float(price_str)
+            if query[price_pattern.end()-1:price_pattern.end()].lower() == 'k':
+                effective_max_price *= 1000
+
     try:
         response = httpx.post(
             PRODUCT_SEARCH_WEBHOOK_URL,
@@ -75,13 +99,29 @@ def search_products(query: str) -> dict:
                 if not products:
                     return {"result": "No products found. Try different keywords."}
 
-                # Helper: get first non-empty value from multiple possible keys (n8n may use different field names)
-                def _get(p, *keys):
-                    for k in keys:
-                        v = p.get(k) or p.get(k.replace("_", ""))
-                        if v and str(v).strip():
-                            return str(v).strip()
-                    return ""
+                # Filter by max price if provided or extracted from query
+                if effective_max_price is not None:
+                    filtered = []
+                    for p in products:
+                        p_raw = str(p.get("product_price", "")).replace(",", "").replace("$", "").strip()
+                        try:
+                            if float(p_raw) <= effective_max_price:
+                                filtered.append(p)
+                        except (ValueError, TypeError):
+                            filtered.append(p)  # keep items with no parseable price
+                    if filtered:
+                        products = filtered
+                    else:
+                        # Nothing within budget — find cheapest available and return text only (no carousel)
+                        prices = []
+                        for p in products:
+                            raw = str(p.get("product_price", "")).replace(",", "").replace("$", "").strip()
+                            try:
+                                prices.append(float(raw))
+                            except (ValueError, TypeError):
+                                pass
+                        lowest = f"${int(min(prices)):,}" if prices else "higher than your budget"
+                        return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. The most affordable option currently available starts at {lowest}. Would you like to adjust your budget, or can I help you with something else?"}
 
                 # Build carousel data
                 lines = []
@@ -297,7 +337,7 @@ IDENTITY AND SCOPE:
 
 TONE AND STYLE (VERY IMPORTANT):
 - Sound friendly, natural, and human-like, but not overly sweet or fake.
-- NEVER use emojis in your responses.
+- NEVER use emojis in your responses. Keep all text plain and professional.
 - Do NOT use special formatting like asterisks, hashtags, or parentheses to highlight text; respond in plain text sentences.
 - Keep answers concise: usually 3–4 sentences maximum. For social channels (Instagram, Facebook, SMS), keep responses under 900 characters.
 - If your response has more than one sentence, put each sentence on a new line. Do not send one large paragraph.
