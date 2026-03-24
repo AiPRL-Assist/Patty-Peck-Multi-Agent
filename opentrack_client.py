@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 WSSE_NS = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
 OT_NS = "opentrack.dealertrack.com"
+OT_NS_T = "opentrack.dealertrack.com/transitional"
 
 # Config from env
 OPENTRACK_URL = os.environ.get("OPENTRACK_URL", "https://otstaging.arkona.com/serviceapi.asmx")
@@ -83,11 +84,11 @@ def _check_errors(root: ET.Element) -> None:
         code = _text(err, "Code")
         msg = _text(err, "Message") or _text(err, "Description") or "Unknown error"
         raise OpenTrackError(code=code, message=msg)
-    # Also check with namespace
-    for err in root.iter(f"{{{OT_NS}}}Error"):
-        code = _text_ns(err, "Code")
-        msg = _text_ns(err, "Message") or _text_ns(err, "Description") or "Unknown error"
-        raise OpenTrackError(code=code, message=msg)
+    for ns in [OT_NS, OT_NS_T]:
+        for err in root.iter(f"{{{ns}}}Error"):
+            code = _text_ns(err, "Code")
+            msg = _text_ns(err, "Message") or _text_ns(err, "Description") or "Unknown error"
+            raise OpenTrackError(code=code, message=msg)
 
 
 def _text(parent: ET.Element, tag: str) -> str:
@@ -102,21 +103,24 @@ def _text(parent: ET.Element, tag: str) -> str:
 
 
 def _text_ns(parent: ET.Element, tag: str) -> str:
-    """Get text of a child element using the OpenTrack namespace."""
-    el = parent.find(f"{{{OT_NS}}}{tag}")
-    if el is None:
-        for child in parent.iter(f"{{{OT_NS}}}{tag}"):
+    """Get text of a child element using OpenTrack namespaces."""
+    for ns in [OT_NS, OT_NS_T]:
+        el = parent.find(f"{{{ns}}}{tag}")
+        if el is not None:
+            return (el.text or "").strip()
+    for ns in [OT_NS, OT_NS_T]:
+        for child in parent.iter(f"{{{ns}}}{tag}"):
             return (child.text or "").strip()
-        return ""
-    return (el.text or "").strip()
+    return ""
 
 
 def _find_result(root: ET.Element, result_tag: str) -> ET.Element | None:
     """Find the result element by local name, with or without namespace."""
     for el in root.iter(result_tag):
         return el
-    for el in root.iter(f"{{{OT_NS}}}{result_tag}"):
-        return el
+    for ns in [OT_NS, OT_NS_T]:
+        for el in root.iter(f"{{{ns}}}{result_tag}"):
+            return el
     return None
 
 
@@ -145,15 +149,15 @@ def get_service_types() -> dict:
 
         service_types = []
         for st in root.iter("ServiceType"):
-            code = _text(st, "Code")
-            desc = _text(st, "Description")
+            code = _text(st, "ServiceTypeCode") or _text(st, "Code")
+            desc = _text(st, "ServiceTypeDescription") or _text(st, "Description")
             if code:
                 service_types.append({"code": code, "description": desc})
         # Try namespaced if none found
         if not service_types:
             for st in root.iter(f"{{{OT_NS}}}ServiceType"):
-                code = _text_ns(st, "Code")
-                desc = _text_ns(st, "Description")
+                code = _text_ns(st, "ServiceTypeCode") or _text_ns(st, "Code")
+                desc = _text_ns(st, "ServiceTypeDescription") or _text_ns(st, "Description")
                 if code:
                     service_types.append({"code": code, "description": desc})
 
@@ -298,8 +302,10 @@ def get_open_repair_orders(
         root = _send("opentrack.dealertrack.com/OpenRepairOrderLookup", _build_envelope(body))
 
         repair_orders = []
-        # Try without namespace first, then with
-        for tag in ["RepairOrder", f"{{{OT_NS}}}RepairOrder"]:
+        # Cox uses "Result" elements inside OpenRepairOrderLookupResult
+        for tag in ["Result", "RepairOrder",
+                     f"{{{OT_NS}}}Result", f"{{{OT_NS}}}RepairOrder",
+                     f"{{{OT_NS_T}}}Result", f"{{{OT_NS_T}}}RepairOrder"]:
             for ro in root.iter(tag):
                 ro_num = _text(ro, "RepairOrderNumber") or _text_ns(ro, "RepairOrderNumber")
                 if not ro_num:
@@ -307,9 +313,13 @@ def get_open_repair_orders(
                 repair_orders.append({
                     "ro_number": ro_num,
                     "vin": _text(ro, "VIN") or _text_ns(ro, "VIN"),
-                    "status": _text(ro, "Status") or _text_ns(ro, "Status"),
-                    "promised_date_time": _text(ro, "PromisedDateTime") or _text_ns(ro, "PromisedDateTime"),
-                    "service_writer": _text(ro, "ServiceWriter") or _text_ns(ro, "ServiceWriter"),
+                    "status": _text(ro, "ROStatus") or _text_ns(ro, "ROStatus") or _text(ro, "Status") or _text_ns(ro, "Status"),
+                    "customer_name": _text(ro, "CustomerName") or _text_ns(ro, "CustomerName"),
+                    "service_writer": _text(ro, "ServiceWriterID") or _text_ns(ro, "ServiceWriterID"),
+                    "open_date": _text(ro, "OpenTransactionDate") or _text_ns(ro, "OpenTransactionDate"),
+                    "make": _text(ro, "Make") or _text_ns(ro, "Make"),
+                    "model": _text(ro, "Model") or _text_ns(ro, "Model"),
+                    "year": _text(ro, "ModelYear") or _text_ns(ro, "ModelYear"),
                 })
             if repair_orders:
                 break
@@ -345,7 +355,7 @@ def get_closed_ro_details(ro_number: str) -> dict:
 
         # Find the RO element inside the result
         ro_el = None
-        for tag in ["RepairOrder", f"{{{OT_NS}}}RepairOrder"]:
+        for tag in ["RepairOrder", f"{{{OT_NS}}}RepairOrder", f"{{{OT_NS_T}}}RepairOrder"]:
             ro_el = result.find(tag)
             if ro_el is None:
                 for child in result.iter(tag):
@@ -362,7 +372,7 @@ def get_closed_ro_details(ro_number: str) -> dict:
 
         # Parse service lines
         service_lines = []
-        for tag in ["ServiceLine", f"{{{OT_NS}}}ServiceLine"]:
+        for tag in ["ServiceLine", f"{{{OT_NS}}}ServiceLine", f"{{{OT_NS_T}}}ServiceLine"]:
             for line in ro_el.iter(tag):
                 op = _text(line, "LaborOpCode") or _text_ns(line, "LaborOpCode")
                 desc = _text(line, "Description") or _text_ns(line, "Description")
