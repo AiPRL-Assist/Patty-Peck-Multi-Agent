@@ -270,11 +270,25 @@ def create_appointment(name: str, email: str, phone: str, date: str, time: str, 
         time: Time of the appointment, e.g. '10:00 AM' or '14:00'.
         reason: Reason for the visit, e.g. 'Test drive CR-V' or 'General visit'.
     """
+    # --- Normalize non-English month names to English (e.g. Spanish) ---
+    _month_map = {
+        'enero': 'January', 'febrero': 'February', 'marzo': 'March',
+        'abril': 'April', 'mayo': 'May', 'junio': 'June',
+        'julio': 'July', 'agosto': 'August', 'septiembre': 'September',
+        'octubre': 'October', 'noviembre': 'November', 'diciembre': 'December',
+    }
+    _normalized_date = date
+    for es, en in _month_map.items():
+        if es in date.lower():
+            import re as _re
+            _normalized_date = _re.sub(es, en, date, flags=_re.IGNORECASE)
+            break
+
     # --- Validate the requested date is not in the past ---
     now_cst = datetime.now(CST_TZ)
     try:
         from dateutil import parser as dateparser
-        parsed_dt = dateparser.parse(f"{date} {time}")
+        parsed_dt = dateparser.parse(f"{_normalized_date} {time}")
         if parsed_dt is None:
             return {"error": f"Could not understand the date/time '{date} {time}'. Please use a format like 'March 15, 2026 at 10:00 AM'."}
         if parsed_dt.tzinfo is None:
@@ -495,6 +509,7 @@ Step 1 - Get User Information: Ask for Name, Email, and Phone number ONE AT A TI
 - If the user has already provided any information before, confirm instead of re-asking: "just to confirm you would like to use ... as your email?"
 
 Step 2 - Get Date and Time: Ask the user date and time for appointment and make sure it's valid and within working hours
+- You already know the current date and year from CURRENT DATE AND TIME above. Use it to resolve ALL relative dates yourself (e.g. "tomorrow", "next Tuesday", "this Saturday", "March 28th"). NEVER ask the user to clarify the month or year — figure it out from the current date.
 - Make sure to not book an appointment for past days
 - Make sure the date and time the user has chosen is in working days and hours
 - If a user asks for a test drive, it's always in-person (don't ask virtual vs in-person)
@@ -601,6 +616,7 @@ Finance Center: https://www.pattypeckhonda.com/finance/
 Payment Calculator: https://www.pattypeckhonda.com/payment-calculator/
 
 IMPORTANT RULES:
+- When calling any tool/function, ALWAYS pass date, time, and other parameters in English, regardless of the conversation language. For example, use 'March 15, 2026' not 'marzo 15, 2026'. The conversation with the user can remain in their language.
 - Never say "I will get back to you."
 - Never say "Let me check."
 - Run search_products and respond in the same message.
