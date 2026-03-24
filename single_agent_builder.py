@@ -24,6 +24,9 @@ BUSINESS_ID = os.environ.get("BUSINESS_ID", "pph")
 AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")
 
 
+# OpenTrack DMS integration
+import opentrack_client
+
 # =============================================================================
 # TOOL FUNCTIONS (Combined from all agents)
 # =============================================================================
@@ -239,6 +242,79 @@ Reason: {reason}
 
 
 # =============================================================================
+# OPENTRACK DMS TOOL FUNCTIONS (Cox Automotive Integration)
+# =============================================================================
+
+def lookup_service_types() -> dict:
+    """Look up all available service types at Patty Peck Honda service center. Returns a list of service type codes and descriptions."""
+    return opentrack_client.get_service_types()
+
+
+def book_service_appointment(customer_number: str, vin: str, date_time: str, service_type_code: str) -> dict:
+    """Book a service appointment in the DMS system.
+
+    Args:
+        customer_number: The DMS customer number (e.g. "1000048")
+        vin: The Vehicle Identification Number
+        date_time: Appointment date/time in YYYYMMDDHHMI format with no separators (e.g. "202603251000" for March 25, 2026 at 10:00 AM)
+        service_type_code: Service type code from lookup_service_types (e.g. "MAS" for Maintenance Service)
+    """
+    return opentrack_client.add_appointment(
+        customer_number=customer_number,
+        vin=vin,
+        date_time=date_time,
+        service_type_code=service_type_code,
+    )
+
+
+def create_repair_order(customer_number: str, vin: str, odometer: int, service_writer_id: str, technician_id: str, labor_op_code: str, trans_code: str = "CP", promised_date_time: str = "") -> dict:
+    """Create a repair/maintenance order in the DMS system.
+
+    Args:
+        customer_number: The DMS customer number
+        vin: The Vehicle Identification Number
+        odometer: Current odometer reading (must exceed last recorded mileage)
+        service_writer_id: Service writer ID (e.g. "SW01")
+        technician_id: Technician ID (e.g. "TECH05")
+        labor_op_code: Labor operation code (e.g. "LOF" for Lube Oil Filter)
+        trans_code: Transaction code - "CP" for Customer Pay, "WP" for Warranty Pay
+        promised_date_time: Promised completion in ISO format (e.g. "2026-03-25T17:00:00")
+    """
+    return opentrack_client.add_repair_order(
+        customer_number=customer_number,
+        vin=vin,
+        odometer=odometer,
+        service_writer_id=service_writer_id,
+        technician_id=technician_id,
+        labor_op_code=labor_op_code,
+        trans_code=trans_code,
+        promised_date_time=promised_date_time,
+    )
+
+
+def check_repair_status(customer_number: str = "", vin: str = "") -> dict:
+    """Check if a vehicle has any open (in-progress) repair orders. Provide at least one of customer_number or vin.
+
+    Args:
+        customer_number: The DMS customer number
+        vin: The Vehicle Identification Number
+    """
+    return opentrack_client.get_open_repair_orders(
+        customer_number=customer_number,
+        vin=vin,
+    )
+
+
+def get_completed_service_details(ro_number: str) -> dict:
+    """Get full details of a completed service job including labor, parts, and totals.
+
+    Args:
+        ro_number: The repair order number (e.g. "9001414")
+    """
+    return opentrack_client.get_closed_ro_details(ro_number=ro_number)
+
+
+# =============================================================================
 # SINGLE UNIFIED AGENT
 # =============================================================================
 
@@ -281,8 +357,19 @@ PRICING:
 - If they want financing estimates, guide them to the finance page or offer team follow-up.
 
 SERVICE SCHEDULING:
-- For service scheduling, do not book an appointment yourself; always direct the user to:
+- For service scheduling, you can now book appointments directly through our DMS system.
+- First call lookup_service_types to see available service types.
+- Then use book_service_appointment with the customer's details to book directly.
+- If the DMS booking fails or is unavailable, fall back to directing the user to:
   https://www.pattypeckhonda.com/service/schedule-service/
+
+DMS SERVICE TOOLS (OpenTrack Integration):
+- lookup_service_types: Call this to get available service types (oil change, tire rotation, etc.) before booking.
+- book_service_appointment: Book a service appointment. Requires customer_number, VIN, date_time (YYYYMMDDHHMI format, no separators), and service_type_code.
+- create_repair_order: Create a repair order. Requires customer_number, VIN, odometer, service_writer_id, technician_id, labor_op_code. Only use when directed by service staff.
+- check_repair_status: Check if a vehicle is currently being serviced. Provide customer_number or VIN.
+- get_completed_service_details: Look up a completed service record by repair order number.
+- If any DMS tool returns success: false, relay the error message to the customer politely and offer alternatives.
 
 CONTENT BEHAVIORS AND HELPFUL LINKS:
 - When the user shows interest in recalls, trade-in value, calculators, or similar tools, proactively provide the relevant Patty Peck Honda links without asking for permission first.
@@ -540,6 +627,12 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
         FunctionTool(connect_to_support),
         FunctionTool(create_ticket),
         FunctionTool(create_appointment),
+        # OpenTrack DMS tools
+        FunctionTool(lookup_service_types),
+        FunctionTool(book_service_appointment),
+        FunctionTool(create_repair_order),
+        FunctionTool(check_repair_status),
+        FunctionTool(get_completed_service_details),
     ]
 
     logger.info(f"🚀 Building single unified agent with {len(tools)} tools")
