@@ -614,14 +614,34 @@ export function useSSEChat() {
       const products = extractProducts(allEvents)
       const toolCalls = allEvents.filter(e => e.type === EventType.FUNCTION_CALL)
 
-      // If no text but tools ran and returned products, show them with a fallback message
+      // If no text from Gemini, try to extract text from function response 'result' field
       if (!finalText.trim()) {
+        // Extract fallback text from tool responses (the 'result' field our tools return)
+        let toolResultText = ''
+        for (const event of allEvents) {
+          if (event.type === EventType.FUNCTION_RESPONSE && event.response?.result) {
+            toolResultText = event.response.result
+            break
+          }
+        }
+
         if (products.length > 0) {
           console.info('Empty text response but products found - showing product results')
           setMessages(prev => [...prev, {
             role: 'agent',
-            text: "Here's what I found:",
+            text: toolResultText || "Here's what I found:",
             products,
+            toolCalls,
+            events: allEvents
+          }])
+          setStatus('idle')
+          return
+        }
+        if (toolResultText) {
+          console.info('Empty text response but tool result text found')
+          setMessages(prev => [...prev, {
+            role: 'agent',
+            text: toolResultText,
             toolCalls,
             events: allEvents
           }])
