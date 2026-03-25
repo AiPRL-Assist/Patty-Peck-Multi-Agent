@@ -56,19 +56,19 @@ JWT_SECRET=your-secret-key-change-this
 GOOGLE_API_KEY=your-google-api-key
 ```
 
-### 4. Set up the database (local dev only)
+### 4. Set up the database
 
-**Production:** Schema is managed externally. No migrations or seed run on deploy.
-
-**Local dev (manual, when authorized):**
 ```bash
+# Generate Prisma client
 python -m prisma generate
-# prisma db push and seed.py are manual only - run when you need them
+
+# Push schema to database (creates tables)
+python -m prisma db push
 ```
 
-### 5. Seed the database (local dev, manual only)
+### 5. Seed the database
 
-Creates a default admin user and three starter agents. Run manually when needed:
+Creates a default admin user and three starter agents (FAQ, Product Fetching, Ticketing):
 
 ```bash
 python seed.py

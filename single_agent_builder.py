@@ -9,14 +9,10 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 import httpx
-
-# Patty Peck Honda operates in Central Time
-CST_TZ = ZoneInfo("America/Chicago")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -131,11 +127,29 @@ def search_products(query: str, max_price: float = 0) -> dict:
                 lines = []
                 carousel = []
                 for i, p in enumerate(products, 1):
-                    name = p.get("product_name", "Unknown")
-                    price_raw = str(p.get("product_price", "")).strip()
-                    description = p.get("product_description", "")
-                    product_url = p.get("product_URL", "")
-                    image_url = p.get("product_image_URL", "")
+                    name = _get(p, "product_name", "name", "title") or "Unknown"
+                    price_raw = str(_get(p, "product_price", "price") or "").strip()
+                    description = _get(p, "product_description", "description", "comments")
+                    product_url = _get(p, "product_URL", "url", "product_url")
+                    image_url = _get(p, "product_image_URL", "image_url", "product_image_url")
+                    # Color and features - common dealer/inventory field names
+                    color = _get(p, "color", "exterior_color", "ExteriorColor", "exteriorColor", "product_color")
+                    interior_color = _get(p, "interior_color", "InteriorColor", "interiorColor")
+                    features = _get(p, "features", "Features", "options", "Options", "standard_equipment")
+                    # Engine, drivetrain, transmission, fuel efficiency
+                    engine = _get(p, "engine", "Engine", "engine_type", "EngineType", "engine_description")
+                    drivetrain = _get(p, "drivetrain", "Drivetrain", "drive_type", "driveType", "drivetype")
+                    transmission = _get(p, "transmission", "Transmission", "trans_type", "transType")
+                    fuel_economy = _get(p, "fuel_economy", "fuelEconomy", "mpg", "MPG", "fuel_efficiency")
+                    if not fuel_economy:
+                        city = _get(p, "city_mpg", "cityMpg", "CityMPG")
+                        hwy = _get(p, "highway_mpg", "highwayMpg", "HighwayMPG")
+                        if city and hwy:
+                            fuel_economy = f"City {city} / Highway {hwy} MPG"
+                        elif city:
+                            fuel_economy = f"City {city} MPG"
+                        elif hwy:
+                            fuel_economy = f"Highway {hwy} MPG"
 
                     # Parse price: detect numeric vs non-numeric
                     price_clean = price_raw.replace(",", "").replace("$", "").strip()
@@ -152,6 +166,20 @@ def search_products(query: str, max_price: float = 0) -> dict:
                         price_label = "Contact Store for Pricing"
                         lines.append(f"{i}. {name} - Contact Store for Pricing")
 
+                    if color:
+                        lines.append(f"   Exterior Color: {color}")
+                    if interior_color:
+                        lines.append(f"   Interior Color: {interior_color}")
+                    if engine:
+                        lines.append(f"   Engine: {engine}")
+                    if drivetrain:
+                        lines.append(f"   Drivetrain: {drivetrain}")
+                    if transmission:
+                        lines.append(f"   Transmission: {transmission}")
+                    if fuel_economy:
+                        lines.append(f"   Fuel Economy: {fuel_economy}")
+                    if features:
+                        lines.append(f"   Features: {features}")
                     if description:
                         lines.append(f"   Description: {description}")
                     if product_url:
@@ -159,13 +187,21 @@ def search_products(query: str, max_price: float = 0) -> dict:
                     if image_url:
                         lines.append(f"   Image: {image_url}")
 
-                    # Add to carousel array
+                    # Add to carousel array (include all vehicle specs for frontend)
                     carousel.append({
                         "name": name,
                         "price": price_display,
                         "price_label": price_label,
                         "url": product_url,
                         "image_url": image_url,
+                        "description": description or None,
+                        "color": color or None,
+                        "interior_color": interior_color or None,
+                        "engine": engine or None,
+                        "drivetrain": drivetrain or None,
+                        "transmission": transmission or None,
+                        "fuel_economy": fuel_economy or None,
+                        "features": features or None,
                     })
 
                 return {
@@ -203,36 +239,24 @@ def connect_to_support(name: str, email: str, phone: str, location: str, issue: 
         return {"status": "error", "error": str(e)}
 
 
-def create_ticket(title: str, description: str = "", customerName: str = "", customerPhone: str = "", priority: str = "medium", source: str = "ai-agent", conversationId: str = "") -> dict:
-    """Create a support ticket for a customer issue. Returns a confirmation message."""
+def create_ticket(title: str, description: str, priority: str = "medium", tags: str = "") -> dict:
+    """Create a support ticket"""
     try:
         response = httpx.post(
-            f"{INBOX_API_BASE_URL}/api/tickets",
+            f"{INBOX_API_BASE_URL}/api/tickets/create",
             json={
+                "business_id": BUSINESS_ID,
                 "title": title,
                 "description": description,
-                "customerName": customerName,
-                "customerPhone": customerPhone,
-                "columnId": "new",
                 "priority": priority,
-                "source": source,
-                "conversationId": conversationId,
+                "tags": tags.split(",") if tags else [],
+                "created_by": AI_USER_EMAIL
             },
-            headers={
-                "x-business-id": BUSINESS_ID,
-                "Content-Type": "application/json",
-            },
-            timeout=10.0
+            timeout=5.0
         )
-        if response.status_code in (200, 201):
-            data = response.json()
-            ticket = data.get("ticket", data)
-            ticket_id = ticket.get("id", ticket.get("_id", "unknown"))
-            return {"result": f"Ticket created successfully. ID: {ticket_id}. Title: {title}. The team will follow up soon."}
-        return {"error": f"Ticket creation failed (status {response.status_code}). Please try again."}
+        return response.json() if response.status_code == 200 else {"error": "Ticket creation failed"}
     except Exception as e:
-        logger.error(f"Ticket creation error: {e}")
-        return {"error": "Ticket creation failed due to a temporary error. Please try again."}
+        return {"error": str(e)}
 
 
 def create_appointment(name: str, email: str, phone: str, date: str, time: str, reason: str, appointment_type: str = "sales") -> dict:
@@ -340,14 +364,13 @@ TONE AND STYLE (VERY IMPORTANT):
 - NEVER use emojis in your responses. Keep all text plain and professional.
 - Do NOT use special formatting like asterisks, hashtags, or parentheses to highlight text; respond in plain text sentences.
 - Keep answers concise: usually 3–4 sentences maximum. For social channels (Instagram, Facebook, SMS), keep responses under 900 characters.
+- If your response has more than one sentence, put each sentence on a new line. Do not send one large paragraph.
 - For greetings, reply like: Hello, welcome to Patty Peck Honda — how can I help today?
 
 CHANNEL AWARENESS AND LINKS:
 - You will be told the current channel in a variable such as user_channel (e.g., Webchat, Instagram, Facebook, SMS).
-- If the channel is Webchat, format links as HTML anchors like:
-  <a href="https://www.pattypeckhonda.com" style="text-decoration: underline;" target="_blank">Patty Peck Honda</a>.
-- If the channel is Instagram, Facebook, or SMS, send plain URLs with no extra formatting.
-- When sharing phone and email for Webchat, prefer tel:/mailto: style links; otherwise, just show the raw phone number and email.
+- Always send plain URLs for all links. The frontend will automatically convert them to clickable links. Example: https://www.pattypeckhonda.com
+- For phone numbers and email addresses on all channels (including Webchat), use plain text format only (no HTML anchors, no tel:, no mailto:).
 
 BUSINESS INFORMATION AND KNOWLEDGE BASE:
 - Treat any Client Provided Knowledge Base (products and promotions, notices and policies, business updates) as the highest priority source of truth. If a topic is covered there, follow it exactly.
@@ -361,7 +384,7 @@ STORE AND DEALERSHIP RULES:
 - If the user asks for dealership directions or how to get there, you must immediately call the show_directions tool, then use its data to answer naturally.
 
 PRICING:
-- Never provide price estimates or specific payment quotes. Politely decline and instead direct the user to the appropriate new vehicle or offers pages.
+- Never provide price estimates or specific payment quotes. Politely decline and instead direct the user to our special offers page: https://www.pattypeckhonda.com/new-honda-special-offers/
 - Never generate payment quotes or fake pricing. Only present pricing returned from search_products.
 - If they want financing estimates, guide them to the finance page or offer team follow-up.
 
@@ -373,29 +396,34 @@ CONTENT BEHAVIORS AND HELPFUL LINKS:
 
 HOURS AND OPERATIONS:
 - When giving hours, list them cleanly per department in a single chunk (Sales, Service/Parts/Express, Finance) and do not duplicate the hours message.
+- CRITICAL FORMATTING: When displaying working hours, you MUST include a blank DOUBLE LINE between each department section for readability. Format each department header in bold (**Sales Hours:**, **Service Hours:**, etc.) and ensure there is clear visual separation with a blank line between each department.
 - Mention holiday closures only when the user asks about holidays or a specific date.
 
-Sales Hours:
+**Sales Hours:**
 Mon: 8:30 AM - 7:00 PM
 Tue - Sat: 8:30 AM - 8:00 PM
 Sun: Closed
 
-Service Hours:
+
+**Service Hours:**
 Mon - Fri: 7:30 AM - 6:00 PM
 Sat: 8:00 AM - 5:00 PM
 Sun: Closed
 
-Parts Hours:
+
+**Parts Hours:**
 Mon - Fri: 7:30 AM - 6:00 PM
 Sat: 8:00 AM - 5:00 PM
 Sun: Closed
 
-Express Service Hours:
+
+**Express Service Hours:**
 Mon - Fri: 7:30 AM - 6:00 PM
 Sat: 8:00 AM - 5:00 PM
 Sun: Closed
 
-Finance Hours:
+
+**Finance Hours:**
 Mon - Sat: 8:30 AM - 8:00 PM
 Sun: Closed
 
@@ -439,6 +467,11 @@ CRITICAL - ALWAYS RE-SEARCH ON REFINEMENT:
 When the user refines or narrows a previous search by adding ANY new constraint (price range, color, year, body style, features, mileage, etc.), you MUST call search_products AGAIN with the full refined query. NEVER filter, summarize, or list vehicles from your memory or previous results. The search_products tool returns real-time filtered data — you must always use the tool so the user sees an updated product carousel, not a plain text list. For example, if the user first asked for "used trucks" and then says "under $30,000", call search_products("used trucks under $30,000").
 
 Do NOT call search_products for extremely vague messages like "I need a car" or "What do you have?" without any specifics. In those cases, ask ONE clarifying question first. Once they provide ANY specific detail, immediately call search_products.
+
+APPOINTMENT INTENT OVERRIDES SEARCH:
+- If the user expresses intent to book an appointment or a test drive (e.g., "book me an appointment", "schedule a test drive", "I want to come in"), do NOT call search_products or recommend additional vehicles unless they explicitly ask to browse options.
+- If a specific vehicle was mentioned (e.g., "Honda Odyssey") when you ask the this question "Are you interested in looking at a specific car? Or just paying a visit?", treat that as the vehicle of interest for the appointment and proceed directly with the appointment flow using that vehicle name.
+- Keep the conversation focused on collecting required details and confirming a time/date rather than product discovery.
 
 PRESENTING VEHICLE RESULTS:
 - You MUST ALWAYS write a text response when presenting vehicle results. NEVER return products silently without text.
@@ -601,19 +634,8 @@ IMPORTANT RULES:
 - Always decline providing price estimates.
 - You must NEVER run the wrong function as a substitute - always trigger the right tool. If you can't find that tool, say you are having technical issues and offer to connect with support.
 
-CURRENT DATE AND TIME: {current_date}
-You MUST use this date and time as your reference for all date-related reasoning. Do NOT guess or assume a different date.
+CURRENT DATE: {current_date}
 """
-
-
-def _get_instruction(_) -> str:
-    """Return the instruction with the current date/time injected dynamically.
-
-    Called by ADK on every request so the agent always knows the real date.
-    """
-    now_cst = datetime.now(CST_TZ)
-    date_str = now_cst.strftime("%A, %B %d, %Y at %I:%M %p CST")
-    return UNIFIED_INSTRUCTION.format(current_date=date_str)
 
 
 def build_single_agent(before_callback=None, after_callback=None) -> Agent:
@@ -621,6 +643,8 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
     Build single unified agent with all tools.
     No multi-agent routing = ~5.8s faster!
     """
+    date_str = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p %Z")
+
     # Create all tools
     tools = [
         FunctionTool(show_directions),
@@ -637,7 +661,7 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
         name="gavigans_agent",
         model="gemini-2.0-flash",  # Use same model as multi-agent (was gemini-2.5-flash)
         description="Patty Peck Honda unified AI assistant - handles all inquiries",
-        instruction=_get_instruction,
+        instruction=UNIFIED_INSTRUCTION.format(current_date=date_str),
         tools=tools,
         before_agent_callback=before_callback,
         after_agent_callback=after_callback,
