@@ -611,11 +611,44 @@ export function useSSEChat() {
         return
       }
       
-      // FIX: Empty response is NOT the same as AI paused!
-      // An empty response might indicate a routing/transfer issue, not human takeover.
-      // Show a generic message instead of silently failing.
+      const products = extractProducts(allEvents)
+      const toolCalls = allEvents.filter(e => e.type === EventType.FUNCTION_CALL)
+
+      // If no text from Gemini, try to extract text from function response 'result' field
       if (!finalText.trim()) {
-        console.warn('Empty response from agent - may be a routing issue')
+        // Extract fallback text from tool responses (the 'result' field our tools return)
+        let toolResultText = ''
+        for (const event of allEvents) {
+          if (event.type === EventType.FUNCTION_RESPONSE && event.response?.result) {
+            toolResultText = event.response.result
+            break
+          }
+        }
+
+        if (products.length > 0) {
+          console.info('Empty text response but products found - showing product results')
+          setMessages(prev => [...prev, {
+            role: 'agent',
+            text: toolResultText || "Here's what I found:",
+            products,
+            toolCalls,
+            events: allEvents
+          }])
+          setStatus('idle')
+          return
+        }
+        if (toolResultText) {
+          console.info('Empty text response but tool result text found')
+          setMessages(prev => [...prev, {
+            role: 'agent',
+            text: toolResultText,
+            toolCalls,
+            events: allEvents
+          }])
+          setStatus('idle')
+          return
+        }
+        console.warn('Empty response from agent - no text or products')
         setMessages(prev => [...prev, {
           role: 'agent',
           text: 'I apologize, I encountered an issue processing your request. Please try again or rephrase your question.'
@@ -623,9 +656,6 @@ export function useSSEChat() {
         setStatus('idle')
         return
       }
-      
-      const products = extractProducts(allEvents)
-      const toolCalls = allEvents.filter(e => e.type === EventType.FUNCTION_CALL)
 
       // Add agent message
       setMessages(prev => [...prev, {
