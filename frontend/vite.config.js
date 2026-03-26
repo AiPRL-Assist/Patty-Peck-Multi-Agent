@@ -13,10 +13,25 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      '/apps': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/run_sse': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/list-apps': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/debug': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

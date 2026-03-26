@@ -9,10 +9,14 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 import httpx
+
+# Patty Peck Honda operates in Central Time
+CST_TZ = ZoneInfo("America/Chicago")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -634,8 +638,45 @@ IMPORTANT RULES:
 - Always decline providing price estimates.
 - You must NEVER run the wrong function as a substitute - always trigger the right tool. If you can't find that tool, say you are having technical issues and offer to connect with support.
 
-CURRENT DATE: {current_date}
+CURRENT DATE AND TIME: {current_date}
+You MUST use this date and time as your reference for all date-related reasoning. Do NOT guess or assume a different date.
+
+CALENDAR REFERENCE (use this to resolve relative dates like "this Saturday", "next Monday", "tomorrow", etc.):
+{calendar_reference}
+ALWAYS look up dates from this calendar. NEVER calculate dates in your head.
 """
+
+
+def _build_calendar_reference(now_cst) -> str:
+    """Build a 14-day calendar reference so the LLM never miscalculates dates."""
+    from datetime import timedelta
+    lines = []
+    today = now_cst.date()
+    for i in range(14):
+        d = today + timedelta(days=i)
+        day_name = d.strftime("%A")
+        date_str = d.strftime("%B %d, %Y")
+        if i == 0:
+            label = f"  {day_name}: {date_str} (TODAY)"
+        elif i == 1:
+            label = f"  {day_name}: {date_str} (tomorrow)"
+        else:
+            label = f"  {day_name}: {date_str}"
+        lines.append(label)
+    return "\n".join(lines)
+
+
+def _get_instruction(_) -> str:
+    """Return the instruction with the current CST date/time injected dynamically.
+
+    Called by ADK on every request so the agent always knows the real date.
+    """
+    now_cst = datetime.now(CST_TZ)
+    date_str = now_cst.strftime("%A, %B %d, %Y at %I:%M %p CST")
+    calendar_ref = _build_calendar_reference(now_cst)
+    logger.info(f"📅 Injecting date: {date_str}")
+    logger.info(f"📅 Calendar:\n{calendar_ref}")
+    return UNIFIED_INSTRUCTION.format(current_date=date_str, calendar_reference=calendar_ref)
 
 
 def build_single_agent(before_callback=None, after_callback=None) -> Agent:
@@ -643,8 +684,6 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
     Build single unified agent with all tools.
     No multi-agent routing = ~5.8s faster!
     """
-    date_str = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p %Z")
-
     # Create all tools
     tools = [
         FunctionTool(show_directions),
@@ -661,7 +700,7 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
         name="gavigans_agent",
         model="gemini-2.0-flash",  # Use same model as multi-agent (was gemini-2.5-flash)
         description="Patty Peck Honda unified AI assistant - handles all inquiries",
-        instruction=UNIFIED_INSTRUCTION.format(current_date=date_str),
+        instruction=_get_instruction,
         tools=tools,
         before_agent_callback=before_callback,
         after_agent_callback=after_callback,
