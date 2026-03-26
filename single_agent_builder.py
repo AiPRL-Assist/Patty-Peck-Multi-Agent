@@ -591,8 +591,9 @@ When a customer asks about loyalty programs, perks, warranties, or what comes wi
 Would you like more details on any of these?"
 
 WARRANTY KNOWLEDGE BASE (detailed terms below - share specific terms only when the customer asks for more details on a particular program):
+CRITICAL: When discussing a specific warranty, ONLY use details from THAT warranty's section below. NEVER mix or blend details from different warranties. Each warranty section is separated by ===== markers.
 
-1) Patty Peck Honda Limited Warranty (3 months / 3,000 miles)
+===== WARRANTY 1: Patty Peck Honda Limited Warranty (3 months / 3,000 miles) =====
 - Issuing Dealer: Patty Peck Honda, 555 Sunnybrook Road, Ridgeland, MS 39157. Administrator: Pablo Creek Services, Inc.
 - Term: 3 months or 3,000 miles from the vehicle sale date and odometer reading, whichever comes first. Deductible: typically $100 per repair visit, one deductible per breakdown.
 - Coverage territory: Breakdowns occurring or repaired within the 50 United States, DC, and Canada.
@@ -600,21 +601,32 @@ WARRANTY KNOWLEDGE BASE (detailed terms below - share specific terms only when t
 - Maintenance: Follow manufacturer schedule; keep receipts/logs (including self-performed maintenance with matching parts/fluid receipts).
 - Claims basics: Prevent further damage; return to issuing dealer when possible; otherwise contact dealer/administrator; obtain prior authorization before repairs; customer pays deductible and any non-covered portions.
 - Common exclusions (examples): parts not listed, regular maintenance, damage from accidents/abuse/neglect/overheating/lack of fluids/environmental damage/rust, pre-existing issues, repairs without prior authorization (except defined emergencies), modifications, odometer tampering, consequential losses.
+===== END WARRANTY 1 =====
 
-2) Allstate Extended Vehicle Care – Vehicle Service Contract
+===== WARRANTY 2: Allstate Extended Vehicle Care – Vehicle Service Contract =====
 - Seller: Patty Peck Honda, 555 Sunnybrook Road, Ridgeland, MS 39157. Administrator/Obligor: Pablo Creek Services, Inc. Claims & roadside: 877-204-2242.
 - Coverage levels: Basic Care, Preferred Care, Premier Care, Premier Care Wrap; deductible varies by selection.
 - Maintenance: Follow manufacturer requirements and keep records/receipts.
 - Common exclusions (examples): wear/maintenance items, cosmetic/body/glass/trim, damage from collision/abuse/neglect/overheating/lack of maintenance/environmental events, recalls, heavy modifications; some vehicles/configurations are ineligible.
+===== END WARRANTY 2 =====
 
-3) Lifetime Powertrain Limited Warranty (Patty Peck Honda)
-- Issuing Dealer: Patty Peck Honda (Ridgeland, MS). Administrator: Vehicle Service Administrator LLC. Phone: 855-947-3847.
-- Provided at no cost, non-cancellable, non-transferable; limited product warranty focusing on powertrain.
-- Covered components (summary): Engine internally lubricated parts; Transmission/Transaxle internally lubricated parts; Drive Axle internally lubricated parts, plus seals and gaskets for listed parts.
-- Maintenance: Must follow manufacturer schedule and keep receipts/logs; inability to provide records can deny coverage.
+===== WARRANTY 3: Lifetime Powertrain Limited Warranty (Patty Peck Honda) =====
+- Provided at NO COST. Non-cancellable. Non-transferable (stays with you as long as you own the vehicle).
+- Administrator: Wise F&I, Insured by Old Republic Insurance (A+ Superior rating from A.M. Best, over $25 billion in assets).
+- Deductible: $0 deductible.
+- What is it: The powertrain warranty covers all of your vehicle's parts and components designed to provide power to the wheels. This includes engine parts, the driveshaft, and transmission. The warranty covers the replacement or repair of these parts and components and any mechanical repairs.
+- Qualifying vehicles: All new Honda vehicles AND all Premium Pre-Owned or Patty Peck Premium CertifyPLUS Pre-Owned vehicles sold by Patty Peck Honda (these go through a 150-point inspection).
+- Coverage territory: Anywhere in the United States and Canada.
+- Gasoline Engine coverage: All internally lubricated parts including crankshaft, rod and main bearings, camshaft, cam bearings, connecting rods, wrist pins, pistons, piston rings, valves, valve guides, valve retainers, hydraulic or solid lash adjusters, rocker arms, push rods, cam followers, timing chains and gears, balance shafts and bearings, oil pump assembly, timing belt and tensioner, timing chain cover, valve cover, water pump, fuel pump, harmonic balancer and expansion plugs, bypass valves, blow-off valves, all internal parts within the supercharger/turbocharger housing, intercooler waste gate and actuator, supercharger drive pulley, exhaust manifold, intake manifold, and seals and gaskets. Engine block, rotor housing, cylinder heads, and oil pan are covered only if damaged by failure of an internally lubricated part.
+- Transmission/Transfer Case coverage: All internally lubricated parts including front pump, torque converter, metal cooler lines, governor, main shaft, bands, drums, gear sets, bearings, bushings, flywheel/flexplate, transmission cooler, transmission oil pan, synchronizers, transfer case chain and gears, vacuum modulator valve, transmission control unit, transmission mount, throttle valve cable, and seals and gaskets. Housing covered only if damaged by failure of an internally lubricated part.
+- Drive Axle (Front and Rear) coverage: All internally lubricated parts including axle shafts, axle bearings, hub bearings, front locking assemblies, constant velocity joints, drive shafts, drive shaft bearings, universal joints, differential cover, four wheel drive actuator, and seals and gaskets. Housing covered only if damaged by failure of an internally lubricated part.
+- Hybrid Vehicle coverage: Hybrid vehicle motor assembly and all internally lubricated parts, electronic transmission, electronic transmission control unit, and all internally lubricated parts within the transmission or transfer case, electronic transaxle assembly and all internally lubricated parts within the drive axle housing.
+- Seals and Gaskets: Covered for all covered parts listed above when subject to a covered repair.
+- Rental car coverage: Up to 5 days while your vehicle is undergoing a covered repair.
+- Maintenance required: Follow the scheduled maintenance as recommended by the vehicle's owner's manual. No extra maintenance required. Keep receipts/logs; inability to provide records can deny coverage.
+- Do I have to service at Patty Peck Honda? No. You are not required to have your service done at the dealership. However, you must provide copies of your service records if warranty service work is done elsewhere.
 - Claims basics: Prevent further damage; contact dealer/administrator; obtain prior authorization before repairs.
-- Transportation reimbursement may be available with daily caps and day limits while repairs are being completed.
-- Common exclusions/limits: parts not listed, normal wear/maintenance, damage from collision/abuse/neglect/overheating/lack of fluids/environmental events/modifications, pre-existing issues, repairs without prior authorization (except emergencies), consequential losses; total claims and per-visit limits may apply based on vehicle value/purchase price.
+===== END WARRANTY 3 =====
 
 ABOUT PATTY PECK HONDA:
 Welcome to Patty Peck Honda - proudly serving you for over 36 years. We are your one-stop destination for all of your vehicle needs in Ridgeland, MS. From sales to service, it is our promise that every time you do business with Patty Peck Honda you will be treated with the respect you deserve.
