@@ -32,6 +32,14 @@ AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")
 # TOOL FUNCTIONS (Combined from all agents)
 # =============================================================================
 
+def _get(d: dict, *keys):
+    """Try multiple key names, return the first non-empty value found."""
+    for k in keys:
+        v = d.get(k)
+        if v:
+            return v
+    return None
+
 def show_directions() -> dict:
     """Show directions to Patty Peck Honda dealership"""
     return {
@@ -49,6 +57,17 @@ def search_products(query: str, max_price: float = 0) -> dict:
         max_price: Maximum price budget in dollars. If the user mentions a budget or price limit, pass it here (e.g. 15000 for "under $15,000"). Use 0 if no budget specified.
     """
     import re as _re
+
+    # Strip color words from query before sending to webhook
+    # (the webhook can't filter by color and may return 0 results)
+    _COLOR_WORDS = r'\b(?:red|blue|black|white|silver|gray|grey|green|orange|yellow|brown|beige|maroon|burgundy|gold|bronze|pearl|purple|tan|champagne|ivory|crimson|charcoal)\b'
+    # Extract the requested color (if any) for post-filtering results
+    _color_match = _re.search(_COLOR_WORDS, query, flags=_re.IGNORECASE)
+    requested_color = _color_match.group(0).lower() if _color_match else None
+    clean_query = _re.sub(_COLOR_WORDS, '', query, flags=_re.IGNORECASE).strip()
+    clean_query = _re.sub(r'\s{2,}', ' ', clean_query)  # collapse double spaces
+    if not clean_query:
+        clean_query = query  # fallback if query was ONLY a color word
 
     # Use explicit max_price param if provided, otherwise try to extract from query text
     if max_price and max_price > 0:
@@ -71,7 +90,7 @@ def search_products(query: str, max_price: float = 0) -> dict:
         response = httpx.post(
             PRODUCT_SEARCH_WEBHOOK_URL,
             json={
-                "User_message": query,
+                "User_message": clean_query,
                 "chat_history": "na",
                 "Contact_ID": "na",
                 "customer_email": "na"
@@ -118,6 +137,20 @@ def search_products(query: str, max_price: float = 0) -> dict:
                     else:
                         # Nothing within budget — don't claim a specific cheapest price since the search only returns a subset of inventory
                         return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. Would you like to adjust your budget, or can I help you with something else?"}
+
+                # Post-filter by requested color if the user asked for one
+                color_filtered = False
+                if requested_color and products:
+                    _color_re = _re.compile(r'\b' + _re.escape(requested_color) + r'\b', _re.IGNORECASE)
+                    color_matches = []
+                    for p in products:
+                        # Check the dedicated exterior_color field first (most reliable)
+                        ext_color = str(p.get("exterior_color", "") or "").lower()
+                        if _color_re.search(ext_color):
+                            color_matches.append(p)
+                    if color_matches:
+                        products = color_matches
+                        color_filtered = True
 
                 # Build carousel data
                 lines = []
@@ -200,11 +233,16 @@ def search_products(query: str, max_price: float = 0) -> dict:
                         "features": features or None,
                     })
 
+                result_text = f"Found {len(products)} products:\n" + "\n".join(lines)
+                if requested_color and not color_filtered:
+                    result_text += f"\n\nNOTE: No {requested_color} vehicles were found in our current online inventory. The results above show other available options. The customer can contact us at 601-957-3400 to check for {requested_color} vehicles that may not be listed online."
+
                 return {
-                    "result": f"Found {len(products)} products:\n" + "\n".join(lines),
+                    "result": result_text,
                     "products": carousel,
                 }
-            except Exception:
+            except Exception as _parse_err:
+                logger.error(f"Search parse error: {_parse_err}", exc_info=True)
                 return {"result": "Search returned unexpected format. Try different keywords."}
 
         return {"result": f"Search unavailable (status {response.status_code}). Try again shortly."}
@@ -476,7 +514,7 @@ PRESENTING VEHICLE RESULTS:
 - Briefly describe each vehicle in your text (name and price at minimum).
 - If more results exist, mention additional similar options are available.
 - If no exact match, say you couldn't find an exact match but found close options.
-- The search tool cannot filter by color, interior, or cosmetic features. If the user asked for a specific color (e.g. "red trucks"), do NOT claim the results match that color. Instead say something like "I found some trucks available at Patty Peck Honda, though our search doesn't filter by color. You can check the listings to see color options." NEVER lie about attributes you cannot verify from the search data.
+- If the user asks for a specific color, ALWAYS call search_products. The tool will automatically filter results by color when possible. If matching-color vehicles are found, present them normally. If NO vehicles match the requested color, the tool will note this — relay that honestly to the user and show the available alternatives. Suggest they call 601-957-3400 to check for colors not listed online.
 - Ask ONE follow-up question to refine.
 
 car_information TOOL RULE:
