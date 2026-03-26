@@ -9,10 +9,14 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from google.adk.agents import Agent
 from google.adk.tools import FunctionTool
 import httpx
+
+# Patty Peck Honda operates in Central Time
+CST_TZ = ZoneInfo("America/Chicago")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -27,6 +31,14 @@ AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")
 # =============================================================================
 # TOOL FUNCTIONS (Combined from all agents)
 # =============================================================================
+
+def _get(d: dict, *keys):
+    """Try multiple key names, return the first non-empty value found."""
+    for k in keys:
+        v = d.get(k)
+        if v:
+            return v
+    return None
 
 def show_directions() -> dict:
     """Show directions to Patty Peck Honda dealership"""
@@ -45,6 +57,17 @@ def search_products(query: str, max_price: float = 0) -> dict:
         max_price: Maximum price budget in dollars. If the user mentions a budget or price limit, pass it here (e.g. 15000 for "under $15,000"). Use 0 if no budget specified.
     """
     import re as _re
+
+    # Strip color words from query before sending to webhook
+    # (the webhook can't filter by color and may return 0 results)
+    _COLOR_WORDS = r'\b(?:red|blue|black|white|silver|gray|grey|green|orange|yellow|brown|beige|maroon|burgundy|gold|bronze|pearl|purple|tan|champagne|ivory|crimson|charcoal)\b'
+    # Extract the requested color (if any) for post-filtering results
+    _color_match = _re.search(_COLOR_WORDS, query, flags=_re.IGNORECASE)
+    requested_color = _color_match.group(0).lower() if _color_match else None
+    clean_query = _re.sub(_COLOR_WORDS, '', query, flags=_re.IGNORECASE).strip()
+    clean_query = _re.sub(r'\s{2,}', ' ', clean_query)  # collapse double spaces
+    if not clean_query:
+        clean_query = query  # fallback if query was ONLY a color word
 
     # Use explicit max_price param if provided, otherwise try to extract from query text
     if max_price and max_price > 0:
@@ -67,7 +90,7 @@ def search_products(query: str, max_price: float = 0) -> dict:
         response = httpx.post(
             PRODUCT_SEARCH_WEBHOOK_URL,
             json={
-                "User_message": query,
+                "User_message": clean_query,
                 "chat_history": "na",
                 "Contact_ID": "na",
                 "customer_email": "na"
@@ -112,16 +135,22 @@ def search_products(query: str, max_price: float = 0) -> dict:
                     if filtered:
                         products = filtered
                     else:
-                        # Nothing within budget — find cheapest available and return text only (no carousel)
-                        prices = []
-                        for p in products:
-                            raw = str(p.get("product_price", "")).replace(",", "").replace("$", "").strip()
-                            try:
-                                prices.append(float(raw))
-                            except (ValueError, TypeError):
-                                pass
-                        lowest = f"${int(min(prices)):,}" if prices else "higher than your budget"
-                        return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. The most affordable option currently available starts at {lowest}. Would you like to adjust your budget, or can I help you with something else?"}
+                        # Nothing within budget — don't claim a specific cheapest price since the search only returns a subset of inventory
+                        return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. Would you like to adjust your budget, or can I help you with something else?"}
+
+                # Post-filter by requested color if the user asked for one
+                color_filtered = False
+                if requested_color and products:
+                    _color_re = _re.compile(r'\b' + _re.escape(requested_color) + r'\b', _re.IGNORECASE)
+                    color_matches = []
+                    for p in products:
+                        # Check the dedicated exterior_color field first (most reliable)
+                        ext_color = str(p.get("exterior_color", "") or "").lower()
+                        if _color_re.search(ext_color):
+                            color_matches.append(p)
+                    if color_matches:
+                        products = color_matches
+                        color_filtered = True
 
                 # Build carousel data
                 lines = []
@@ -204,11 +233,16 @@ def search_products(query: str, max_price: float = 0) -> dict:
                         "features": features or None,
                     })
 
+                result_text = f"Found {len(products)} products:\n" + "\n".join(lines)
+                if requested_color and not color_filtered:
+                    result_text += f"\n\nNOTE: No {requested_color} vehicles were found in our current online inventory. The results above show other available options. The customer can contact us at 601-957-3400 to check for {requested_color} vehicles that may not be listed online."
+
                 return {
-                    "result": f"Found {len(products)} products:\n" + "\n".join(lines),
+                    "result": result_text,
                     "products": carousel,
                 }
-            except Exception:
+            except Exception as _parse_err:
+                logger.error(f"Search parse error: {_parse_err}", exc_info=True)
                 return {"result": "Search returned unexpected format. Try different keywords."}
 
         return {"result": f"Search unavailable (status {response.status_code}). Try again shortly."}
@@ -480,7 +514,7 @@ PRESENTING VEHICLE RESULTS:
 - Briefly describe each vehicle in your text (name and price at minimum).
 - If more results exist, mention additional similar options are available.
 - If no exact match, say you couldn't find an exact match but found close options.
-- The search tool cannot filter by color, interior, or cosmetic features. If the user asked for a specific color (e.g. "red trucks"), do NOT claim the results match that color. Instead say something like "I found some trucks available at Patty Peck Honda, though our search doesn't filter by color. You can check the listings to see color options." NEVER lie about attributes you cannot verify from the search data.
+- If the user asks for a specific color, ALWAYS call search_products. The tool will automatically filter results by color when possible. If matching-color vehicles are found, present them normally. If NO vehicles match the requested color, the tool will note this — relay that honestly to the user and show the available alternatives. Suggest they call 601-957-3400 to check for colors not listed online.
 - Ask ONE follow-up question to refine.
 
 car_information TOOL RULE:
@@ -505,10 +539,12 @@ IMPORTANT CONTEXT RULE: Pay close attention to EVERYTHING the user says from the
 
 IMPORTANT GREETING RULE: If the user mentions wanting an appointment, booking, scheduling, or looking at a specific vehicle in their FIRST message or greeting, acknowledge it immediately and begin the appointment flow. Do NOT ignore their intent or make them repeat themselves. For example, if someone says "I want to come see the new Pilot", you already know: this is a sales appointment, they want a new vehicle, they are interested in the Pilot. Skip the questions you already have answers to.
 
-Step 1 - Determine Appointment Type: Ask the user: "Is this for a sales visit or a service appointment?"
-- Sales visit: test drives, viewing vehicles, trade-in appraisals, or general showroom visits.
-- Service appointment: oil changes, tire rotations, brake work, recalls, inspections, or any vehicle repair/maintenance.
-- If the user already made their intent clear (e.g. "I need an oil change", "I want to test drive a CR-V", "I want to check out the newest Pilot"), skip this question and proceed with the correct type.
+Step 1 - Determine Appointment Type: FIRST check if the user's message already reveals the type:
+- Keywords like "buy", "purchase", "test drive", "check out", "looking at", "trade-in", "new car", "used car" → it's a SALES appointment. Do NOT ask.
+- Keywords like "oil change", "tire rotation", "brakes", "repair", "maintenance", "recall", "inspection", "check engine", "service" → it's a SERVICE appointment. Do NOT ask.
+- ONLY if neither sales nor service can be inferred, ask: "Is this for a sales visit or a service appointment?"
+  - Sales visit: test drives, viewing vehicles, trade-in appraisals, or general showroom visits.
+  - Service appointment: oil changes, tire rotations, brake work, recalls, inspections, or any vehicle repair/maintenance.
 
 Step 2 - Qualifying Questions (based on type):
 FOR SALES APPOINTMENTS:
@@ -584,9 +620,18 @@ Serving: Ridgeland, Jackson, Madison, Flowood, and Brandon
 
 TAGLINE: "Home of the lifetime powertrain warranty" - You can use this SOMETIMES in conversation when someone asks about warranty.
 
-WARRANTY KNOWLEDGE BASE (use internally; do NOT paste the entire section unless the user asks for detailed terms):
+WARRANTY / LOYALTY RESPONSE RULE:
+When a customer asks about loyalty programs, perks, warranties, or what comes with their purchase, you MUST mention ALL THREE programs by name with a brief one-line description of each. Never present just one program as if it is the only one. After listing all three, ask which one they would like to learn more about. Example format:
+"At Patty Peck Honda, we offer three warranty programs:
+1. Patty Peck Honda Limited Warranty - covers major systems for 3 months or 3,000 miles on qualifying vehicles.
+2. Allstate Extended Vehicle Care - an optional extended service contract with multiple coverage levels.
+3. Lifetime Powertrain Limited Warranty - a no-cost lifetime warranty covering your powertrain components.
+Would you like more details on any of these?"
 
-1) Patty Peck Honda Limited Warranty (3 months / 3,000 miles)
+WARRANTY KNOWLEDGE BASE (detailed terms below - share specific terms only when the customer asks for more details on a particular program):
+CRITICAL: When discussing a specific warranty, ONLY use details from THAT warranty's section below. NEVER mix or blend details from different warranties. Each warranty section is separated by ===== markers.
+
+===== WARRANTY 1: Patty Peck Honda Limited Warranty (3 months / 3,000 miles) =====
 - Issuing Dealer: Patty Peck Honda, 555 Sunnybrook Road, Ridgeland, MS 39157. Administrator: Pablo Creek Services, Inc.
 - Term: 3 months or 3,000 miles from the vehicle sale date and odometer reading, whichever comes first. Deductible: typically $100 per repair visit, one deductible per breakdown.
 - Coverage territory: Breakdowns occurring or repaired within the 50 United States, DC, and Canada.
@@ -594,21 +639,32 @@ WARRANTY KNOWLEDGE BASE (use internally; do NOT paste the entire section unless 
 - Maintenance: Follow manufacturer schedule; keep receipts/logs (including self-performed maintenance with matching parts/fluid receipts).
 - Claims basics: Prevent further damage; return to issuing dealer when possible; otherwise contact dealer/administrator; obtain prior authorization before repairs; customer pays deductible and any non-covered portions.
 - Common exclusions (examples): parts not listed, regular maintenance, damage from accidents/abuse/neglect/overheating/lack of fluids/environmental damage/rust, pre-existing issues, repairs without prior authorization (except defined emergencies), modifications, odometer tampering, consequential losses.
+===== END WARRANTY 1 =====
 
-2) Allstate Extended Vehicle Care – Vehicle Service Contract
+===== WARRANTY 2: Allstate Extended Vehicle Care – Vehicle Service Contract =====
 - Seller: Patty Peck Honda, 555 Sunnybrook Road, Ridgeland, MS 39157. Administrator/Obligor: Pablo Creek Services, Inc. Claims & roadside: 877-204-2242.
 - Coverage levels: Basic Care, Preferred Care, Premier Care, Premier Care Wrap; deductible varies by selection.
 - Maintenance: Follow manufacturer requirements and keep records/receipts.
 - Common exclusions (examples): wear/maintenance items, cosmetic/body/glass/trim, damage from collision/abuse/neglect/overheating/lack of maintenance/environmental events, recalls, heavy modifications; some vehicles/configurations are ineligible.
+===== END WARRANTY 2 =====
 
-3) Lifetime Powertrain Limited Warranty (Patty Peck Honda)
-- Issuing Dealer: Patty Peck Honda (Ridgeland, MS). Administrator: Vehicle Service Administrator LLC. Phone: 855-947-3847.
-- Provided at no cost, non-cancellable, non-transferable; limited product warranty focusing on powertrain.
-- Covered components (summary): Engine internally lubricated parts; Transmission/Transaxle internally lubricated parts; Drive Axle internally lubricated parts, plus seals and gaskets for listed parts.
-- Maintenance: Must follow manufacturer schedule and keep receipts/logs; inability to provide records can deny coverage.
+===== WARRANTY 3: Lifetime Powertrain Limited Warranty (Patty Peck Honda) =====
+- Provided at NO COST. Non-cancellable. Non-transferable (stays with you as long as you own the vehicle).
+- Administrator: Wise F&I, Insured by Old Republic Insurance (A+ Superior rating from A.M. Best, over $25 billion in assets).
+- Deductible: $0 deductible.
+- What is it: The powertrain warranty covers all of your vehicle's parts and components designed to provide power to the wheels. This includes engine parts, the driveshaft, and transmission. The warranty covers the replacement or repair of these parts and components and any mechanical repairs.
+- Qualifying vehicles: All new Honda vehicles AND all Premium Pre-Owned or Patty Peck Premium CertifyPLUS Pre-Owned vehicles sold by Patty Peck Honda (these go through a 150-point inspection).
+- Coverage territory: Anywhere in the United States and Canada.
+- Gasoline Engine coverage: All internally lubricated parts including crankshaft, rod and main bearings, camshaft, cam bearings, connecting rods, wrist pins, pistons, piston rings, valves, valve guides, valve retainers, hydraulic or solid lash adjusters, rocker arms, push rods, cam followers, timing chains and gears, balance shafts and bearings, oil pump assembly, timing belt and tensioner, timing chain cover, valve cover, water pump, fuel pump, harmonic balancer and expansion plugs, bypass valves, blow-off valves, all internal parts within the supercharger/turbocharger housing, intercooler waste gate and actuator, supercharger drive pulley, exhaust manifold, intake manifold, and seals and gaskets. Engine block, rotor housing, cylinder heads, and oil pan are covered only if damaged by failure of an internally lubricated part.
+- Transmission/Transfer Case coverage: All internally lubricated parts including front pump, torque converter, metal cooler lines, governor, main shaft, bands, drums, gear sets, bearings, bushings, flywheel/flexplate, transmission cooler, transmission oil pan, synchronizers, transfer case chain and gears, vacuum modulator valve, transmission control unit, transmission mount, throttle valve cable, and seals and gaskets. Housing covered only if damaged by failure of an internally lubricated part.
+- Drive Axle (Front and Rear) coverage: All internally lubricated parts including axle shafts, axle bearings, hub bearings, front locking assemblies, constant velocity joints, drive shafts, drive shaft bearings, universal joints, differential cover, four wheel drive actuator, and seals and gaskets. Housing covered only if damaged by failure of an internally lubricated part.
+- Hybrid Vehicle coverage: Hybrid vehicle motor assembly and all internally lubricated parts, electronic transmission, electronic transmission control unit, and all internally lubricated parts within the transmission or transfer case, electronic transaxle assembly and all internally lubricated parts within the drive axle housing.
+- Seals and Gaskets: Covered for all covered parts listed above when subject to a covered repair.
+- Rental car coverage: Up to 5 days while your vehicle is undergoing a covered repair.
+- Maintenance required: Follow the scheduled maintenance as recommended by the vehicle's owner's manual. No extra maintenance required. Keep receipts/logs; inability to provide records can deny coverage.
+- Do I have to service at Patty Peck Honda? No. You are not required to have your service done at the dealership. However, you must provide copies of your service records if warranty service work is done elsewhere.
 - Claims basics: Prevent further damage; contact dealer/administrator; obtain prior authorization before repairs.
-- Transportation reimbursement may be available with daily caps and day limits while repairs are being completed.
-- Common exclusions/limits: parts not listed, normal wear/maintenance, damage from collision/abuse/neglect/overheating/lack of fluids/environmental events/modifications, pre-existing issues, repairs without prior authorization (except emergencies), consequential losses; total claims and per-visit limits may apply based on vehicle value/purchase price.
+===== END WARRANTY 3 =====
 
 ABOUT PATTY PECK HONDA:
 Welcome to Patty Peck Honda - proudly serving you for over 36 years. We are your one-stop destination for all of your vehicle needs in Ridgeland, MS. From sales to service, it is our promise that every time you do business with Patty Peck Honda you will be treated with the respect you deserve.
@@ -634,8 +690,45 @@ IMPORTANT RULES:
 - Always decline providing price estimates.
 - You must NEVER run the wrong function as a substitute - always trigger the right tool. If you can't find that tool, say you are having technical issues and offer to connect with support.
 
-CURRENT DATE: {current_date}
+CURRENT DATE AND TIME: {current_date}
+You MUST use this date and time as your reference for all date-related reasoning. Do NOT guess or assume a different date.
+
+CALENDAR REFERENCE (use this to resolve relative dates like "this Saturday", "next Monday", "tomorrow", etc.):
+{calendar_reference}
+ALWAYS look up dates from this calendar. NEVER calculate dates in your head.
 """
+
+
+def _build_calendar_reference(now_cst) -> str:
+    """Build a 14-day calendar reference so the LLM never miscalculates dates."""
+    from datetime import timedelta
+    lines = []
+    today = now_cst.date()
+    for i in range(14):
+        d = today + timedelta(days=i)
+        day_name = d.strftime("%A")
+        date_str = d.strftime("%B %d, %Y")
+        if i == 0:
+            label = f"  {day_name}: {date_str} (TODAY)"
+        elif i == 1:
+            label = f"  {day_name}: {date_str} (tomorrow)"
+        else:
+            label = f"  {day_name}: {date_str}"
+        lines.append(label)
+    return "\n".join(lines)
+
+
+def _get_instruction(_) -> str:
+    """Return the instruction with the current CST date/time injected dynamically.
+
+    Called by ADK on every request so the agent always knows the real date.
+    """
+    now_cst = datetime.now(CST_TZ)
+    date_str = now_cst.strftime("%A, %B %d, %Y at %I:%M %p CST")
+    calendar_ref = _build_calendar_reference(now_cst)
+    logger.info(f"📅 Injecting date: {date_str}")
+    logger.info(f"📅 Calendar:\n{calendar_ref}")
+    return UNIFIED_INSTRUCTION.format(current_date=date_str, calendar_reference=calendar_ref)
 
 
 def build_single_agent(before_callback=None, after_callback=None) -> Agent:
@@ -643,8 +736,6 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
     Build single unified agent with all tools.
     No multi-agent routing = ~5.8s faster!
     """
-    date_str = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p %Z")
-
     # Create all tools
     tools = [
         FunctionTool(show_directions),
@@ -661,7 +752,7 @@ def build_single_agent(before_callback=None, after_callback=None) -> Agent:
         name="gavigans_agent",
         model="gemini-2.0-flash",  # Use same model as multi-agent (was gemini-2.5-flash)
         description="Patty Peck Honda unified AI assistant - handles all inquiries",
-        instruction=UNIFIED_INSTRUCTION.format(current_date=date_str),
+        instruction=_get_instruction,
         tools=tools,
         before_agent_callback=before_callback,
         after_agent_callback=after_callback,

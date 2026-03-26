@@ -9,8 +9,15 @@ import UserLogo from '../assets/UserLogo.jpg'
 function MessageContent({ text }) {
   if (!text) return null
 
+  // Strip emojis from response text
+  const clean = text.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').replace(/  +/g, ' ')
+
   // Process markdown-style formatting
   const renderLine = (line, lineIndex) => {
+    // Empty lines become visible spacers
+    if (line.trim() === '') {
+      return <div key={lineIndex} className="message-spacer" />
+    }
     // Handle bold **text**
     const parts = line.split(/(\*\*[^*]+\*\*)/g)
     
@@ -46,7 +53,7 @@ function MessageContent({ text }) {
 
   return (
     <div className="message-content">
-      {text.split('\n').map((line, index) => renderLine(line, index))}
+      {clean.split('\n').map((line, index) => renderLine(line, index))}
     </div>
   )
 }
