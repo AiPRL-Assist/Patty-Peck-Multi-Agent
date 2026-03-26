@@ -116,16 +116,8 @@ def search_products(query: str, max_price: float = 0) -> dict:
                     if filtered:
                         products = filtered
                     else:
-                        # Nothing within budget — find cheapest available and return text only (no carousel)
-                        prices = []
-                        for p in products:
-                            raw = str(p.get("product_price", "")).replace(",", "").replace("$", "").strip()
-                            try:
-                                prices.append(float(raw))
-                            except (ValueError, TypeError):
-                                pass
-                        lowest = f"${int(min(prices)):,}" if prices else "higher than your budget"
-                        return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. The most affordable option currently available starts at {lowest}. Would you like to adjust your budget, or can I help you with something else?"}
+                        # Nothing within budget — don't claim a specific cheapest price since the search only returns a subset of inventory
+                        return {"result": f"Unfortunately, no vehicles were found within your ${int(effective_max_price):,} budget. Would you like to adjust your budget, or can I help you with something else?"}
 
                 # Build carousel data
                 lines = []
