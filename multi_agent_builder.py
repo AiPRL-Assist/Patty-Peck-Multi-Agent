@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 PRODUCT_SEARCH_WEBHOOK_URL = os.environ.get("PRODUCT_SEARCH_WEBHOOK_URL", "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/d93dcc07-d07e-42c8-patty-peck-v3-product-search")
+COX_API_WEBHOOK_URL = os.environ.get("COX_API_WEBHOOK_URL", "https://dev-team-aiprl-test-service.no0i7c.easypanel.host/webhook/opentrack-agent")
 INBOX_API_BASE_URL = (os.environ.get("INBOX_WEBHOOK_URL") or "https://pphinboxbackend-production.up.railway.app/webhook/message").replace("/webhook/message", "")
 BUSINESS_ID = os.environ.get("BUSINESS_ID", "pph")
 AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")
@@ -53,6 +54,11 @@ CHANNEL AWARENESS AND LINKS:
 - Always send plain URLs for all links. The frontend will automatically convert them to clickable links. Example: https://www.pattypeckhonda.com
 - For phone numbers and email addresses on all channels (including Webchat), use plain text format only (no HTML anchors, no tel:, no mailto:).
 
+CHANNEL-SPECIFIC LAYOUT (LOCATIONS, DIRECTIONS, AND ANY HTTPS LINK):
+- Facebook, Instagram, and SMS use a narrow bubble; text and URLs can look cramped if the URL sits on the same line as the sentence before it.
+- When user_channel is Facebook, Instagram, or SMS: After your explanatory sentences, put one blank line before you share the street address, phone, or any https:// link (including Google Maps). Put each maps URL on its own line after that blank line. Prefer short lines: one fact per line when sharing address + phone + link.
+- When user_channel is Webchat: The pane is wider; you may keep a slightly tighter layout, but you may still use the same blank-line-before-links pattern for consistency.
+
 BUSINESS INFORMATION AND KNOWLEDGE BASE:
 - Treat any Client Provided Knowledge Base (products and promotions, notices and policies, business updates) as the highest priority source of truth. If a topic is covered there, follow it exactly.
 - If the client knowledge base does not cover the topic, use Patty Peck Honda business information you were given (hours, location, services, finance, trade-in, service center, recalls, etc.).
@@ -60,8 +66,9 @@ BUSINESS INFORMATION AND KNOWLEDGE BASE:
 
 STORE AND DEALERSHIP RULES:
 - Patty Peck Honda currently has only one dealership located in Ridgeland, Mississippi; if asked about other locations, clearly state this.
-- Always refer to the physical store as Patty peck Honda Ridgeland- dealership when talking about the showroom.
-- When asked for showroom details, provide: Patty peck Honda Ridgeland- dealership, the full address, the Google Maps link, and the main phone number.
+- Always refer to the physical store as Patty Peck Honda dealership when talking about the showroom.
+- When asked for showroom details, provide: Patty Peck Honda dealership, the full address, the Google Maps link, and the main phone number.
+- On Facebook, Instagram, or SMS, follow CHANNEL-SPECIFIC LAYOUT: blank line before address and before the maps URL so the link is not glued to the description.
 - If the user asks for dealership directions or how to get there, you must immediately call the show_directions tool, then use its data to answer naturally.
 
 PRICING:
@@ -90,7 +97,7 @@ CUSTOMER INTENT, SUPPORT, AND FRUSTRATION:
 - Never claim to have performed an action (like booking an appointment) if all you did was share a link or explain next steps.
 
 INVENTORY AND AVAILABILITY:
-- If a user asks about inventory availability, first confirm they are asking about the Patty peck Honda Ridgeland- dealership.
+- If a user asks about inventory availability, first confirm they are asking about the Patty Peck Honda dealership.
 - Let them know you do not have real-time inventory, and offer to connect them with the showroom or provide the phone number.
 - Ask one clear choice at a time (for example, whether they prefer an appointment or a phone number) and avoid overwhelming them with multiple questions at once.
 
@@ -193,6 +200,7 @@ Plain text only.
 No asterisks, hashtags, or special formatting.
 Use plain URLs for links on every channel, including Webchat. Do not output HTML hyperlink tags.
 If your response has more than one sentence, put each sentence on a new line. Do not send one large paragraph.
+On Facebook, Instagram, or SMS, put one blank line before any line that contains an https:// URL so the link is not glued to the sentence above (narrow chat bubbles).
 
 NO PRICE ESTIMATES:
 Never generate payment quotes or fake pricing. Only present pricing returned from search_products.
@@ -200,7 +208,7 @@ If they want financing estimates, guide them to the finance page or offer team f
 
 INVENTORY RULE:
 If asked about real-time availability:
-First confirm they mean Patty Peck Honda Ridgeland dealership.
+First confirm they mean Patty Peck Honda dealership.
 Explain you do not have live inventory confirmation.
 Offer to either:
 1) Set an appointment
@@ -337,6 +345,30 @@ Assistant: Yes and if fact, we are the home of the lifetime powertrain warranty!
 Your task is to answer all the questions the user has, help them book an appointment and also connect them with the support team. 
 
 You must never lie or fake any information, type your responses and conversation exactly like how a real human specialist does. We must avoid robotic responses, Also adjust your responses on the basis of the channel the user is on. 
+
+COX SERVICE AND CUSTOMER API TOOLS (CRITICAL):
+For service operations, repair orders, appointments in the DMS, and customer records, always use the COX tools and do not invent data.
+
+Tool mapping:
+- ServiceTypesLookup -> service_types_lookup
+- GetClosedRepairOrderDetails -> get_closed_repair_order_details
+- ServicePricingLookup -> service_pricing_lookup
+- OpenRepairOrderLookup -> open_repair_order_lookup
+- AddRepairOrder -> add_repair_order
+- AppointmentAdd -> appointment_add
+- ServiceWriterLookup -> service_writer_lookup
+- AppointmentLookup -> appointment_lookup
+- AppointmentUpdate -> appointment_update
+- AppointmentDelete -> appointment_delete
+- CustomerAdd -> customer_add
+- CustomerLookup -> customer_lookup
+- CustomerUpdate -> customer_update
+- CustomerSearch -> customer_search
+- CustomerList -> customer_list
+
+When the user asks one of the intents above, call the mapped tool immediately with available details from the user's message.
+If required fields are missing, ask one follow-up question at a time, then call the tool.
+Always pass the user's exact request in user_message when that parameter exists.
 
 
 We will aim to make the process seamless for the user, find ways to easily get the customers objective achieved while helping them.
@@ -639,7 +671,25 @@ Whether you wish to buy or lease, you can count on the finance specialists at Pa
 
 Payment calculator tool link: https://www.pattypeckhonda.com/payment-calculator/
 """,
-        "tools": ["create_ticket", "create_appointment"]
+        "tools": [
+            "create_ticket",
+            "create_appointment",
+            "service_types_lookup",
+            "get_closed_repair_order_details",
+            "service_pricing_lookup",
+            "open_repair_order_lookup",
+            "add_repair_order",
+            "appointment_add",
+            "service_writer_lookup",
+            "appointment_lookup",
+            "appointment_update",
+            "appointment_delete",
+            "customer_add",
+            "customer_lookup",
+            "customer_update",
+            "customer_search",
+            "customer_list"
+        ]
     }
 ]
 
@@ -877,10 +927,10 @@ async def create_appointment(
 
 async def show_directions() -> dict:
     """Get directions to Patty Peck Honda dealership. Returns address and Google Maps link."""
-    address = "555 Sunnybrook Road, Ridgeland, MS 39157"
-    maps_url = "https://www.google.com/maps/dir/?api=1&destination=555+Sunnybrook+Road,+Ridgeland,+MS+39157"
+    address = "555 Sunnybrook Rd, Ridgeland, MS 39157"
+    maps_url = "https://www.google.com/maps?q=555+Sunnybrook+Rd,+Ridgeland,+MS+39157"
     return {
-        "result": f"Patty Peck Honda is located at {address}. Get directions: {maps_url}",
+        "result": f"Patty Peck Honda is located at {address}.\n\nGet directions:\n{maps_url}",
         "address": address,
         "maps_url": maps_url
     }
@@ -920,6 +970,216 @@ async def car_information(query: str) -> dict:
     }
 
 
+async def _call_cox_api(operation: str, user_message: str = "", **kwargs) -> dict:
+    """Call the COX service/customer webhook through n8n."""
+    payload = {
+        "operation": operation,
+        "user_message": user_message,
+        "parameters": {k: v for k, v in kwargs.items() if v not in (None, "")},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(COX_API_WEBHOOK_URL, json=payload)
+            if resp.status_code != 200:
+                return {"result": f"COX API unavailable (status {resp.status_code}). Please try again shortly."}
+
+            content_type = resp.headers.get("content-type", "").lower()
+            if "application/json" in content_type:
+                data = resp.json()
+                if isinstance(data, dict):
+                    message = data.get("result") or data.get("message") or data.get("response")
+                    return {
+                        "result": message or f"{operation} completed successfully.",
+                        "data": data,
+                    }
+                return {"result": f"{operation} completed successfully.", "data": data}
+
+            body = resp.text.strip()
+            return {"result": body or f"{operation} completed successfully."}
+    except Exception:
+        return {"result": "COX API is temporarily unavailable. Please try again."}
+
+
+async def service_types_lookup(user_message: str = "Which services are available?") -> dict:
+    return await _call_cox_api("ServiceTypesLookup", user_message=user_message)
+
+
+async def get_closed_repair_order_details(order_number: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "GetClosedRepairOrderDetails",
+        user_message=user_message or f"Get closed repair order details for order number {order_number}.",
+        order_number=order_number,
+    )
+
+
+async def service_pricing_lookup(
+    user_message: str,
+    labor_code: str = "",
+    payment_method: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "ServicePricingLookup",
+        user_message=user_message,
+        labor_code=labor_code,
+        payment_method=payment_method,
+    )
+
+
+async def open_repair_order_lookup(vin: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "OpenRepairOrderLookup",
+        user_message=user_message or f"Check open or closed repair status for VIN {vin}.",
+        vin=vin,
+    )
+
+
+async def add_repair_order(
+    vin: str,
+    customer_number: str,
+    service_name: str,
+    mileage: str = "",
+    appointment_datetime: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AddRepairOrder",
+        user_message=user_message,
+        vin=vin,
+        customer_number=customer_number,
+        service_name=service_name,
+        mileage=mileage,
+        appointment_datetime=appointment_datetime,
+    )
+
+
+async def appointment_add(
+    vin: str,
+    customer_number: str = "",
+    appointment_datetime: str = "",
+    email: str = "",
+    phone: str = "",
+    odometer: str = "",
+    service_writer_id: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AppointmentAdd",
+        user_message=user_message,
+        vin=vin,
+        customer_number=customer_number,
+        appointment_datetime=appointment_datetime,
+        email=email,
+        phone=phone,
+        odometer=odometer,
+        service_writer_id=service_writer_id,
+    )
+
+
+async def service_writer_lookup(user_message: str = "Show me the service writers available.") -> dict:
+    return await _call_cox_api("ServiceWriterLookup", user_message=user_message)
+
+
+async def appointment_lookup(vin: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "AppointmentLookup",
+        user_message=user_message or f"Look up appointment details for VIN {vin}.",
+        vin=vin,
+    )
+
+
+async def appointment_update(
+    vin: str,
+    appointment_datetime: str = "",
+    service_writer_id: str = "",
+    appointment_number: str = "",
+    keep_service_writer: bool = False,
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AppointmentUpdate",
+        user_message=user_message,
+        vin=vin,
+        appointment_datetime=appointment_datetime,
+        service_writer_id=service_writer_id,
+        appointment_number=appointment_number,
+        keep_service_writer=keep_service_writer,
+    )
+
+
+async def customer_add(
+    full_name: str,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    postal_code: str = "",
+    phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerAdd",
+        user_message=user_message,
+        full_name=full_name,
+        address=address,
+        city=city,
+        state=state,
+        postal_code=postal_code,
+        phone=phone,
+        email=email,
+    )
+
+
+async def customer_lookup(customer_number: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "CustomerLookup",
+        user_message=user_message or f"Look up customer number {customer_number}.",
+        customer_number=customer_number,
+    )
+
+
+async def customer_update(
+    customer_number: str,
+    home_phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerUpdate",
+        user_message=user_message,
+        customer_number=customer_number,
+        home_phone=home_phone,
+        email=email,
+    )
+
+
+async def customer_search(
+    full_name: str = "",
+    home_phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerSearch",
+        user_message=user_message,
+        full_name=full_name,
+        home_phone=home_phone,
+        email=email,
+    )
+
+
+async def customer_list(user_message: str = "Show all customers.") -> dict:
+    return await _call_cox_api("CustomerList", user_message=user_message)
+
+
+async def appointment_delete(appointment_number: str = "", vin: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "AppointmentDelete",
+        user_message=user_message,
+        appointment_number=appointment_number,
+        vin=vin,
+    )
+
+
 
 TOOL_MAP = {
     "search_products": FunctionTool(search_products),
@@ -928,6 +1188,21 @@ TOOL_MAP = {
     "show_directions": FunctionTool(show_directions),
     "connect_to_support": FunctionTool(connect_to_support),
     "car_information": FunctionTool(car_information),
+    "service_types_lookup": FunctionTool(service_types_lookup),
+    "get_closed_repair_order_details": FunctionTool(get_closed_repair_order_details),
+    "service_pricing_lookup": FunctionTool(service_pricing_lookup),
+    "open_repair_order_lookup": FunctionTool(open_repair_order_lookup),
+    "add_repair_order": FunctionTool(add_repair_order),
+    "appointment_add": FunctionTool(appointment_add),
+    "service_writer_lookup": FunctionTool(service_writer_lookup),
+    "appointment_lookup": FunctionTool(appointment_lookup),
+    "appointment_update": FunctionTool(appointment_update),
+    "customer_add": FunctionTool(customer_add),
+    "customer_lookup": FunctionTool(customer_lookup),
+    "customer_update": FunctionTool(customer_update),
+    "customer_search": FunctionTool(customer_search),
+    "customer_list": FunctionTool(customer_list),
+    "appointment_delete": FunctionTool(appointment_delete),
 }
 
 
@@ -993,7 +1268,7 @@ Rules:
 2. Choose the right agent:
    - product_agent: cars, vehicles, inventory, model, trim, price, buying, search, Honda, Accord, CR-V
    - faq_agent: store hours, locations, policies, financing, directions, warranty, recalls, careers, greetings, hello, hi
-   - ticketing_agent: appointments, human support, frustrated customers, booking, escalation
+   - ticketing_agent: service operations, customer lookup/update/search/list, repair orders, service pricing/types, appointments, human support, frustrated customers, booking, escalation
 3. If the conversation is already about a topic, keep transferring to the same agent.
 4. If unsure, transfer to faq_agent.
 5. NEVER complete the user's sentence. NEVER add words. ONLY call transfer_to_agent.
