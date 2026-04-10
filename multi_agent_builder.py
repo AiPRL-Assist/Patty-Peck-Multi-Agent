@@ -8,6 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 PRODUCT_SEARCH_WEBHOOK_URL = os.environ.get("PRODUCT_SEARCH_WEBHOOK_URL", "https://client-aiprl-n8n.ltjed0.easypanel.host/webhook/d93dcc07-d07e-42c8-patty-peck-v3-product-search")
+COX_API_WEBHOOK_URL = os.environ.get(
+    "COX_API_WEBHOOK_URL",
+    "https://dev-team-aiprl-test-service.no0i7c.easypanel.host/webhook/opentrack-agent",
+)
 INBOX_API_BASE_URL = (os.environ.get("INBOX_WEBHOOK_URL") or "https://pphinboxbackend-production.up.railway.app/webhook/message").replace("/webhook/message", "")
 BUSINESS_ID = os.environ.get("BUSINESS_ID", "pph")
 AI_USER_EMAIL = os.environ.get("AI_USER_EMAIL", "ai-agent@pattypeckhonda.com")
@@ -289,13 +293,44 @@ TOOLS AVAILABLE:
     {
         "name": "ticketing_agent",
         "model": "gemini-2.5-flash",
-        "description": "Manages support tickets, appointment booking, and human support connections. Handles customers who want to speak to a human agent, are frustrated or angry, want to book a virtual or in-store appointment, want to connect to a specific showroom, or have issues that need escalation. Also handles purchase follow-up tickets when the product agent has already collected customer details.",
+        "description": "Manages support tickets, showroom appointment booking, human support, and COX/DMS operations: repair orders, DMS service appointments (book, lookup, reschedule, cancel), service types and pricing, service writers, and customer add/lookup/update/search/list. Handles frustrated customers and escalation. Also handles purchase follow-up tickets when the product agent has already collected customer details.",
         "instruction": """You are a friendly assistant for Patty Peck Honda. Your task is to help Patty Peck Honda customers book appointments and also help customers connect with the support team if they need urgent help or are annoyed or frustrated.
 
 You manage support tickets and appointment bookings. You are the agent customers reach when they want to talk to a human, when they have an unresolved issue, when they want to book an in-store or virtual appointment, or when they want to connect to a specific showroom.
 
 CURRENT DATE AND TIME: Use your best knowledge of the current date and time. If session context provides it, use that. Otherwise, reason from available context. This is critical for booking appointments on correct dates.
 
+COX SERVICE AND CUSTOMER API TOOLS (CRITICAL):
+For service operations, repair orders, appointments in the DMS, and customer records, always use the COX tools and do not invent data.
+
+Tool mapping:
+- ServiceTypesLookup -> service_types_lookup
+- GetClosedRepairOrderDetails -> get_closed_repair_order_details
+- ServicePricingLookup -> service_pricing_lookup
+- OpenRepairOrderLookup -> open_repair_order_lookup
+- AddRepairOrder -> add_repair_order
+- AppointmentAdd -> appointment_add
+- ServiceWriterLookup -> service_writer_lookup
+- AppointmentLookup -> appointment_lookup (pass start_date and end_date as YYYYMMDD for counts or day/range queries; always pass user_message verbatim)
+- AppointmentUpdate -> appointment_update
+- AppointmentDelete -> appointment_delete
+- CustomerAdd -> customer_add
+- CustomerLookup -> customer_lookup
+- CustomerUpdate -> customer_update
+- CustomerSearch -> customer_search
+- CustomerList -> customer_list
+
+When the user asks one of the intents above, call the mapped tool immediately with available details from the user's message.
+If required fields are missing, ask one follow-up question at a time, then call the tool.
+Always pass the user's exact request in user_message when that parameter exists.
+
+COX TOOL-FIRST RULE (MANDATORY):
+- You must NOT answer DMS questions (appointments, repair orders, customers, service writers, pricing from COX) from your own knowledge. Always call the matching COX tool in the same turn, then reply using only the tool result.
+- For "how many appointments", appointment counts, appointment lists, or date-range appointment questions (including YYYYMMDD like 20260410), call appointment_lookup immediately with start_date and end_date set from the user's message and user_message set to their full question. Do NOT ask for a VIN first unless the tool result says VIN is required.
+
+COX FOLLOW-UPS AND CONVERSATION MEMORY (MANDATORY):
+- After COX already answered about appointments for a date range or VIN, if the user asks for more detail ("tell me more", "list them", "summary of all", "details on each", etc.), call appointment_lookup again immediately. Reuse start_date, end_date, and/or vin from the previous turn in chat. Put the follow-up plus that context into user_message so n8n can return expanded details.
+- Never claim you cannot retrieve appointment summaries or details, and never route these follow-ups to connect_to_support or support tickets—retry appointment_lookup first. Offer human support only if the user explicitly asks for a person or COX returns an error that requires escalation.
 
  All responses must remain factual and aligned with Patty Peck Honda’s verified offerings—you are not permitted to invent or assume information.
 
@@ -353,7 +388,7 @@ You are not allowed to lie or create fake information or say lies about the acti
 You must not lie about actions you cannot perform, for example: The user requests “Can you make sure that this item will be in stock when I come in next time?” Be smart and try to handle it with the actions you can perform, according to the example we will say: “Sure since I cannot personally put those products aside for you, How about you give me your email and I will connect with our support team?.....” 
 
 
-You must NEVER run the function you are not instructed just as the substitute, always trigger the right function/tool. If you can’t find that tool/funciton to run then just say you are having technical issues at the moment, Can I connect with you the support team?
+You must NEVER run the wrong function as a substitute; always trigger the right tool. For DMS appointment questions and follow-ups (including "more details" after a count), appointment_lookup is the correct tool—call it again with dates or VIN from chat history. Only if there is truly no COX tool for a non-DMS request may you say you are having technical issues and offer support.
 
 
 Rule: There will be a section named "Client Provided Knowledge Base: You will prioritize that knowledge base instead of the Business Information that has been updated, For example: If the working hours of a specific dealer is mentioned is 8-6 pm. and the client knowledge base something else then you will refer to Client Provided Knowledge Base Always. If there is no information in the Client Provided Knowledge base then you will answer the query from Business Information provided. 
@@ -364,7 +399,8 @@ VERY IMPORTANT: Whenever the user requests a support team, The first thing you w
 
 For queries related to Patty Pack Honda refer to business Information to answer. 
 
-IMPORTANT: For Scheduling a service You MUST not book an appointment, For Schedule a service you will direct the user to the website https://www.pattypeckhonda.com/service/schedule-service/ 
+IMPORTANT: For general website service scheduling (no VIN/DMS context), direct the user to https://www.pattypeckhonda.com/service/schedule-service/
+When the user asks to book, look up, reschedule, or cancel a DMS service appointment (VIN, customer number, service writer, appointment number), or manage repair orders and DMS customer records, use the COX tools above instead of only sending that link.
 
 
 IMPORTANT: All the information in the Appointment Booking Process is VERY important, We must get all of the information and then only proceed. 
@@ -490,6 +526,8 @@ Note: If a user previously provided contact details, confirm reuse instead of re
 
 
 ### Human Support Transfer: 
+
+Do not start this flow because the user asked for more appointment details after a COX response—use appointment_lookup again instead.
 
 We will only do Human support transfer if it is the working hours, If it is not the working hours then we will create a support ticket instead. 
 
@@ -639,7 +677,25 @@ Whether you wish to buy or lease, you can count on the finance specialists at Pa
 
 Payment calculator tool link: https://www.pattypeckhonda.com/payment-calculator/
 """,
-        "tools": ["create_ticket", "create_appointment"]
+        "tools": [
+            "create_ticket",
+            "create_appointment",
+            "service_types_lookup",
+            "get_closed_repair_order_details",
+            "service_pricing_lookup",
+            "open_repair_order_lookup",
+            "add_repair_order",
+            "appointment_add",
+            "service_writer_lookup",
+            "appointment_lookup",
+            "appointment_update",
+            "appointment_delete",
+            "customer_add",
+            "customer_lookup",
+            "customer_update",
+            "customer_search",
+            "customer_list",
+        ]
     }
 ]
 
@@ -920,6 +976,231 @@ async def car_information(query: str) -> dict:
     }
 
 
+async def _call_cox_api(operation: str, user_message: str = "", **kwargs) -> dict:
+    """Call the COX service/customer webhook through n8n."""
+    payload = {
+        "operation": operation,
+        "user_message": user_message,
+        "parameters": {k: v for k, v in kwargs.items() if v not in (None, "")},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            resp = await client.post(COX_API_WEBHOOK_URL, json=payload)
+            if resp.status_code != 200:
+                return {"result": f"COX API unavailable (status {resp.status_code}). Please try again shortly."}
+
+            content_type = resp.headers.get("content-type", "").lower()
+            if "application/json" in content_type:
+                data = resp.json()
+                if isinstance(data, dict):
+                    message = data.get("result") or data.get("message") or data.get("response")
+                    return {
+                        "result": message or f"{operation} completed successfully.",
+                        "data": data,
+                    }
+                return {"result": f"{operation} completed successfully.", "data": data}
+
+            body = resp.text.strip()
+            return {"result": body or f"{operation} completed successfully."}
+    except Exception:
+        return {"result": "COX API is temporarily unavailable. Please try again."}
+
+
+async def service_types_lookup(user_message: str = "Which services are available?") -> dict:
+    return await _call_cox_api("ServiceTypesLookup", user_message=user_message)
+
+
+async def get_closed_repair_order_details(order_number: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "GetClosedRepairOrderDetails",
+        user_message=user_message or f"Get closed repair order details for order number {order_number}.",
+        order_number=order_number,
+    )
+
+
+async def service_pricing_lookup(
+    user_message: str,
+    labor_code: str = "",
+    payment_method: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "ServicePricingLookup",
+        user_message=user_message,
+        labor_code=labor_code,
+        payment_method=payment_method,
+    )
+
+
+async def open_repair_order_lookup(vin: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "OpenRepairOrderLookup",
+        user_message=user_message or f"Check open or closed repair status for VIN {vin}.",
+        vin=vin,
+    )
+
+
+async def add_repair_order(
+    vin: str,
+    customer_number: str,
+    service_name: str,
+    mileage: str = "",
+    appointment_datetime: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AddRepairOrder",
+        user_message=user_message,
+        vin=vin,
+        customer_number=customer_number,
+        service_name=service_name,
+        mileage=mileage,
+        appointment_datetime=appointment_datetime,
+    )
+
+
+async def appointment_add(
+    vin: str,
+    customer_number: str = "",
+    appointment_datetime: str = "",
+    email: str = "",
+    phone: str = "",
+    odometer: str = "",
+    service_writer_id: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AppointmentAdd",
+        user_message=user_message,
+        vin=vin,
+        customer_number=customer_number,
+        appointment_datetime=appointment_datetime,
+        email=email,
+        phone=phone,
+        odometer=odometer,
+        service_writer_id=service_writer_id,
+    )
+
+
+async def service_writer_lookup(user_message: str = "Show me the service writers available.") -> dict:
+    return await _call_cox_api("ServiceWriterLookup", user_message=user_message)
+
+
+async def appointment_lookup(
+    vin: str = "",
+    user_message: str = "",
+    start_date: str = "",
+    end_date: str = "",
+) -> dict:
+    """DMS appointments via n8n. Use for: (1) customer's appointments when you have a VIN, (2) appointment counts or lists for a date range — pass start_date/end_date as YYYYMMDD (e.g. 20260410), (3) follow-ups asking for more detail after a prior appointment response — reuse same dates/VIN from chat and describe the follow-up in user_message."""
+    default_msg = user_message
+    if not default_msg:
+        if start_date or end_date:
+            default_msg = f"Appointment query from {start_date or '(unspecified)'} to {end_date or '(unspecified)'}"
+        elif vin:
+            default_msg = f"Look up appointment details for VIN {vin}."
+        else:
+            default_msg = "Appointment lookup request."
+    return await _call_cox_api(
+        "AppointmentLookup",
+        user_message=default_msg,
+        vin=vin,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+async def appointment_update(
+    vin: str,
+    appointment_datetime: str = "",
+    service_writer_id: str = "",
+    appointment_number: str = "",
+    keep_service_writer: bool = False,
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "AppointmentUpdate",
+        user_message=user_message,
+        vin=vin,
+        appointment_datetime=appointment_datetime,
+        service_writer_id=service_writer_id,
+        appointment_number=appointment_number,
+        keep_service_writer=keep_service_writer,
+    )
+
+
+async def customer_add(
+    full_name: str,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    postal_code: str = "",
+    phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerAdd",
+        user_message=user_message,
+        full_name=full_name,
+        address=address,
+        city=city,
+        state=state,
+        postal_code=postal_code,
+        phone=phone,
+        email=email,
+    )
+
+
+async def customer_lookup(customer_number: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "CustomerLookup",
+        user_message=user_message or f"Look up customer number {customer_number}.",
+        customer_number=customer_number,
+    )
+
+
+async def customer_update(
+    customer_number: str,
+    home_phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerUpdate",
+        user_message=user_message,
+        customer_number=customer_number,
+        home_phone=home_phone,
+        email=email,
+    )
+
+
+async def customer_search(
+    full_name: str = "",
+    home_phone: str = "",
+    email: str = "",
+    user_message: str = "",
+) -> dict:
+    return await _call_cox_api(
+        "CustomerSearch",
+        user_message=user_message,
+        full_name=full_name,
+        home_phone=home_phone,
+        email=email,
+    )
+
+
+async def customer_list(user_message: str = "Show all customers.") -> dict:
+    return await _call_cox_api("CustomerList", user_message=user_message)
+
+
+async def appointment_delete(appointment_number: str = "", vin: str = "", user_message: str = "") -> dict:
+    return await _call_cox_api(
+        "AppointmentDelete",
+        user_message=user_message,
+        appointment_number=appointment_number,
+        vin=vin,
+    )
+
 
 TOOL_MAP = {
     "search_products": FunctionTool(search_products),
@@ -928,6 +1209,21 @@ TOOL_MAP = {
     "show_directions": FunctionTool(show_directions),
     "connect_to_support": FunctionTool(connect_to_support),
     "car_information": FunctionTool(car_information),
+    "service_types_lookup": FunctionTool(service_types_lookup),
+    "get_closed_repair_order_details": FunctionTool(get_closed_repair_order_details),
+    "service_pricing_lookup": FunctionTool(service_pricing_lookup),
+    "open_repair_order_lookup": FunctionTool(open_repair_order_lookup),
+    "add_repair_order": FunctionTool(add_repair_order),
+    "appointment_add": FunctionTool(appointment_add),
+    "service_writer_lookup": FunctionTool(service_writer_lookup),
+    "appointment_lookup": FunctionTool(appointment_lookup),
+    "appointment_update": FunctionTool(appointment_update),
+    "customer_add": FunctionTool(customer_add),
+    "customer_lookup": FunctionTool(customer_lookup),
+    "customer_update": FunctionTool(customer_update),
+    "customer_search": FunctionTool(customer_search),
+    "customer_list": FunctionTool(customer_list),
+    "appointment_delete": FunctionTool(appointment_delete),
 }
 
 
@@ -993,7 +1289,7 @@ Rules:
 2. Choose the right agent:
    - product_agent: cars, vehicles, inventory, model, trim, price, buying, search, Honda, Accord, CR-V
    - faq_agent: store hours, locations, policies, financing, directions, warranty, recalls, careers, greetings, hello, hi
-   - ticketing_agent: appointments, human support, frustrated customers, booking, escalation
+   - ticketing_agent: service operations, customer lookup/update/search/list, repair orders, service pricing/types, DMS appointments (book, reschedule, cancel), human support, frustrated customers, showroom booking, escalation
 3. If the conversation is already about a topic, keep transferring to the same agent.
 4. If unsure, transfer to faq_agent.
 5. NEVER complete the user's sentence. NEVER add words. ONLY call transfer_to_agent.
